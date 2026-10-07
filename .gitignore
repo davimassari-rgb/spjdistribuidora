@@ -1,0 +1,33 @@
+# dependências
+/node_modules
+
+# testes
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# banco local (PGlite)
+/.data/
+
+# planilhas reais dos fornecedores: dados comerciais, NUNCA versionar
+/data/samples/
+*.xls
+*.xlsx
+*.csv
+
+# variáveis de ambiente (versionar apenas o .env.example)
+.env*
+!.env.example
+
+# diversos
+.DS_Store
+*.pem
+npm-debug.log*
+
+# vercel
+.vercel
