@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "check": "npm run lint && npm run typecheck && npm test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts"
+    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
