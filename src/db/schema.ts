@@ -139,7 +139,7 @@ export const clients = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     tradeName: text().notNull(),
     legalName: text(),
-    /** Apenas dígitos. */
+    /** 14 caracteres sem pontuação (numérico ou alfanumérico, padrão 2026). */
     cnpj: text().unique(),
     /** "workshop" (oficina) | "parts_store" (loja de autopeças) */
     kind: text().notNull(),

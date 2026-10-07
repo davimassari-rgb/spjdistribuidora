@@ -39,11 +39,11 @@ export function formatPercent(value: number | null | undefined): string {
   return value === null || value === undefined ? "—" : percentFmt.format(value);
 }
 
-/** Dígitos do CNPJ → "12.345.678/0001-95". */
-export function formatCnpj(digits: string | null | undefined): string {
-  if (!digits) return "—";
-  if (digits.length !== 14) return digits;
-  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+/** CNPJ normalizado (14 caracteres, numérico ou alfanumérico) → "12.345.678/0001-95". */
+export function formatCnpj(value: string | null | undefined): string {
+  if (!value) return "—";
+  if (value.length !== 14) return value;
+  return value.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, "$1.$2.$3/$4-$5");
 }
 
 /** Dígitos do telefone → "(11) 91234-5678" / "(11) 1234-5678". */
