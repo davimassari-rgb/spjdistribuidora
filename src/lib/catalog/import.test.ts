@@ -83,7 +83,7 @@ describe("applyImport", () => {
     expect(byKey.FX200).toMatchObject({ code: "fx-200", active: true }); // mesma peça, código normalizado
     expect(byKey.NEW1).toMatchObject({ active: true });
     expect(byKey.AD400.active).toBe(false);
-    expect(byKey["VL300"].active).toBe(false);
+    expect(byKey.VL300.active).toBe(false);
   });
 
   it("substitui as faixas de preço por volume", async () => {

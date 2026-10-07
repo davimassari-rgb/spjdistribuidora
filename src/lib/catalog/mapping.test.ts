@@ -46,6 +46,19 @@ describe("leitura de planilhas", () => {
     ]);
   });
 
+  it("detecta o separador mesmo com uma linha de título antes do cabeçalho", () => {
+    const csv = [
+      "Tabela de preços - Fornecedor Fictício",
+      "",
+      "Cód. Fabricante;Produto;Valor;Valor 10+",
+      "FX-1;FILTRO;6,05;5,45",
+      "FX-2;VELA;8,36;7,52",
+    ].join("\r\n");
+    const sheet = readSpreadsheet(encodeWindows1252(csv), "b.csv");
+    expect(detectHeaderIndex(sheet.rows)).toBe(2);
+    expect(sheet.rows[3]).toEqual(["FX-1", "FILTRO", "6,05", "5,45"]);
+  });
+
   it("lê CSV UTF-8 com vírgula como separador", () => {
     const csv = '\uFEFFcodigo,descricao,preco\nX1,"Peça, com vírgula",12.5\n';
     const sheet = readSpreadsheet(new TextEncoder().encode(csv), "lista.csv");

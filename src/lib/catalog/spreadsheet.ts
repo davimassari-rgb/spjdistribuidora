@@ -77,13 +77,20 @@ function decodeText(data: Uint8Array): string {
   }
 }
 
+/**
+ * Separador mais frequente nas primeiras linhas. Olhar só a primeira linha falha quando a
+ * planilha começa com um título ("Tabela de preços…") acima do cabeçalho.
+ */
 function detectDelimiter(text: string): string {
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
+  const lines = text
+    .split(/\r?\n/, 20)
+    .filter((line) => line.trim() !== "")
+    .slice(0, 10);
   const candidates = [";", ",", "\t", "|"];
   let best = ",";
   let bestCount = 0;
   for (const candidate of candidates) {
-    const count = firstLine.split(candidate).length - 1;
+    const count = lines.reduce((sum, line) => sum + line.split(candidate).length - 1, 0);
     if (count > bestCount) {
       best = candidate;
       bestCount = count;
