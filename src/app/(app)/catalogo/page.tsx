@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
+import { daysAgoLabel, FreshnessDot } from "@/components/supplier-status";
 import { getDb } from "@/db/client";
 import {
   comparePrices,
@@ -10,7 +11,6 @@ import {
   listSuppliers,
   searchParts,
 } from "@/lib/catalog/queries";
-import { formatDate } from "@/lib/format";
 import { pageParam, param, type SearchParams, withParams } from "@/lib/search-params";
 import { getCurrentSegment } from "@/lib/segment-server";
 import { CompareTable } from "./compare-table";
@@ -42,9 +42,6 @@ export default async function CatalogPage(props: PageProps<"/catalogo">) {
   if (!validSupplier) filters.supplierId = undefined;
 
   const totalActive = supplierList.reduce((sum, s) => sum + s.activeCount, 0);
-  const tab = (active: boolean) =>
-    `rounded-md px-3 py-1.5 text-sm font-medium ${active ? "bg-slate-800 text-white" : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-100"}`;
-
   return (
     <>
       <PageHeader
@@ -53,38 +50,70 @@ export default async function CatalogPage(props: PageProps<"/catalogo">) {
           supplierList.length === 0 ? (
             <>
               Nenhum fornecedor cadastrado ainda.{" "}
-              <Link className="text-blue-600 underline" href="/fornecedores">
+              <Link className="font-medium text-brand-700 underline" href="/fornecedores">
                 Cadastre um fornecedor e importe a planilha
               </Link>
               .
             </>
           ) : (
             <>
-              {totalActive.toLocaleString("pt-BR")} peças disponíveis ·{" "}
-              {supplierList.map((s, i) => (
-                <span key={s.id}>
-                  {i > 0 && " · "}
-                  {s.name}: atualizado em {formatDate(s.lastImportAt)}
-                </span>
-              ))}
+              <span className="num font-semibold text-ink">
+                {totalActive.toLocaleString("pt-BR")}
+              </span>{" "}
+              peças disponíveis em {supplierList.length} fornecedor(es)
             </>
           )
         }
       />
 
-      <div className="mb-4 flex gap-2">
-        <Link
-          href={withParams("/catalogo", params, { visao: undefined, page: undefined })}
-          className={tab(!compare)}
-        >
-          Todas as peças
-        </Link>
-        <Link
-          href={withParams("/catalogo", params, { visao: "comparar", page: undefined })}
-          className={tab(compare)}
-        >
-          Comparar fornecedores ({sharedCount})
-        </Link>
+      {supplierList.length > 0 && (
+        <ul className="mb-4 flex flex-wrap gap-2" aria-label="Atualização dos fornecedores">
+          {supplierList.map((s) => (
+            <li key={s.id}>
+              <Link
+                href={`/fornecedores/${s.id}`}
+                className="card flex items-center gap-2 px-3 py-2 text-sm transition hover:border-line-strong hover:shadow-pop"
+              >
+                <FreshnessDot lastImportAt={s.lastImportAt} />
+                <span className="font-medium text-ink">{s.name}</span>
+                <span className="num text-ink-subtle">
+                  {s.activeCount.toLocaleString("pt-BR")} peças
+                </span>
+                <span className="caption">· {daysAgoLabel(s.lastImportAt)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div
+        role="tablist"
+        className="mb-4 inline-flex rounded-ui border border-line bg-surface-sunken p-1"
+      >
+        {[
+          {
+            active: !compare,
+            href: withParams("/catalogo", params, { visao: undefined, page: undefined }),
+            label: "Todas as peças",
+          },
+          {
+            active: compare,
+            href: withParams("/catalogo", params, { visao: "comparar", page: undefined }),
+            label: `Comparar fornecedores (${sharedCount})`,
+          },
+        ].map((tab) => (
+          <Link
+            key={tab.label}
+            role="tab"
+            aria-selected={tab.active}
+            href={tab.href}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              tab.active ? "bg-surface text-ink shadow-ui" : "text-ink-subtle hover:text-ink"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
 
       <CatalogFilters

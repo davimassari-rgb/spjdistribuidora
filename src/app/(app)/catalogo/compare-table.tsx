@@ -12,7 +12,7 @@ export function CompareTable({ rows }: { rows: ComparisonRow[] }) {
     );
   }
   return (
-    <div className="card divide-y divide-slate-100">
+    <div className="card divide-y divide-line">
       {rows.map((row) => {
         const best = row.offers[0]?.priceCents ?? null;
         return (
@@ -20,7 +20,7 @@ export function CompareTable({ rows }: { rows: ComparisonRow[] }) {
             <div className="min-w-0 md:w-1/3">
               <div className="font-mono text-sm font-semibold">{row.codeKey}</div>
               <div className="text-sm">{row.description}</div>
-              {row.brand && <div className="text-xs text-slate-500">{row.brand}</div>}
+              {row.brand && <div className="caption">{row.brand}</div>}
             </div>
             <div className="flex flex-1 flex-wrap gap-2">
               {row.offers.map((offer) => {
@@ -28,14 +28,30 @@ export function CompareTable({ rows }: { rows: ComparisonRow[] }) {
                 return (
                   <div
                     key={offer.partId}
-                    className={`rounded-md border px-3 py-1.5 text-sm ${
-                      isBest ? "border-green-300 bg-green-50" : "border-slate-200"
+                    className={`rounded-ui border px-3 py-1.5 text-sm ${
+                      isBest ? "border-success-border bg-success-bg" : "border-line"
                     }`}
                   >
-                    <div className="text-xs text-slate-500">
+                    <div className="caption">
                       {offer.supplierName} · {offer.code}
                     </div>
-                    <div className="font-semibold">{formatCents(offer.priceCents)}</div>
+                    <div className="num flex items-baseline gap-2 font-semibold">
+                      {formatCents(offer.priceCents)}
+                      {isBest ? (
+                        <span className="text-xs font-medium text-success">menor preço</span>
+                      ) : (
+                        best !== null &&
+                        offer.priceCents !== null && (
+                          <span className="text-xs font-medium text-danger">
+                            +
+                            {(((offer.priceCents - best) / best) * 100).toLocaleString("pt-BR", {
+                              maximumFractionDigits: 1,
+                            })}
+                            %
+                          </span>
+                        )
+                      )}
+                    </div>
                   </div>
                 );
               })}
