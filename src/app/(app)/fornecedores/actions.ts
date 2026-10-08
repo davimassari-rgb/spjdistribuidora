@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { type ColumnMapping, type ImportIssue, suppliers } from "@/db/schema";
@@ -59,6 +60,15 @@ export async function renameSupplier(_prev: FormState, formData: FormData): Prom
   await getDb().update(suppliers).set({ name: parsed.data.name }).where(eq(suppliers.id, id.data));
   revalidatePath("/fornecedores", "layout");
   return { success: "Nome atualizado." };
+}
+
+/** Exclui o fornecedor com todas as peças, faixas de preço e histórico de importações. */
+export async function deleteSupplier(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = z.uuid().parse(formData.get("id"));
+  await getDb().delete(suppliers).where(eq(suppliers.id, id));
+  revalidatePath("/", "layout");
+  redirect("/fornecedores");
 }
 
 // ------------------------------------------------------------------ importação

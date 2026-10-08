@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { ConfirmButton } from "@/components/confirm-button";
 import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import { getDb } from "@/db/client";
@@ -10,6 +11,7 @@ import { formatDateTime } from "@/lib/format";
 import { pageParam, param, type SearchParams } from "@/lib/search-params";
 import { CatalogFilters } from "../../catalogo/filters";
 import { PartsTable } from "../../catalogo/parts-table";
+import { deleteSupplier } from "../actions";
 import { RenameSupplierForm } from "../supplier-forms";
 
 export const metadata: Metadata = { title: "Fornecedor" };
@@ -109,6 +111,17 @@ export default async function SupplierPage(props: PageProps<"/fornecedores/[id]"
         </section>
         <section className="card self-start p-4">
           <RenameSupplierForm id={supplier.id} name={supplier.name} />
+          <form action={deleteSupplier} className="mt-6 border-t border-slate-100 pt-4">
+            <input type="hidden" name="id" value={supplier.id} />
+            <p className="mb-2 text-xs text-slate-500">
+              Excluir remove o fornecedor, todas as peças e o histórico de importações.
+            </p>
+            <ConfirmButton
+              message={`Excluir ${supplier.name} e todas as peças dele? Não dá para desfazer.`}
+            >
+              Excluir fornecedor
+            </ConfirmButton>
+          </form>
         </section>
       </div>
     </>
