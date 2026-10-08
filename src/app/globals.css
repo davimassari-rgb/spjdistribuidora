@@ -1,29 +1,186 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* =====================================================================
+   Design tokens da SPJ. Toda cor/raio/sombra do sistema sai daqui.
+   ===================================================================== */
+:root {
+  /* Marca (azul) */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+
+  /* Neutros */
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-sunken: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #64748b;
+
+  /* Semânticas */
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+  --warning: #b45309;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --info: #1d4ed8;
+  --info-bg: #eff6ff;
+  --info-border: #bfdbfe;
+
+  --radius: 8px;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.16);
+  --sidebar-width: 15rem;
 }
 
-/* Classes base compartilhadas pelos formulários e botões do sistema. */
+@theme inline {
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-subtle: var(--text-subtle);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-info-border: var(--info-border);
+  --radius-ui: var(--radius);
+  --shadow-ui: var(--shadow-sm);
+  --shadow-pop: var(--shadow-md);
+  --shadow-modal: var(--shadow-lg);
+}
+
+body {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+/* Foco visível em tudo que é interativo (navegação por teclado). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+/* =====================================================================
+   Tipografia
+   ===================================================================== */
+@utility page-title {
+  @apply text-2xl font-semibold tracking-tight text-ink;
+}
+@utility section-title {
+  @apply text-base font-semibold text-ink;
+}
+@utility caption {
+  @apply text-xs text-ink-subtle;
+}
+/* Números e preços alinhados em colunas. */
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   Componentes base
+   ===================================================================== */
 @utility input {
-  @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100;
+  @apply w-full rounded-ui border border-line-strong bg-surface px-3 py-2 text-sm text-ink shadow-ui outline-none transition placeholder:text-ink-subtle focus:border-brand-500 focus:ring-3 focus:ring-brand-100 disabled:bg-surface-sunken disabled:text-ink-subtle;
 }
 @utility label {
-  @apply mb-1 block text-sm font-medium text-slate-700;
+  @apply mb-1.5 block text-sm font-medium text-ink-muted;
 }
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-ui px-4 text-sm font-medium whitespace-nowrap transition select-none disabled:cursor-not-allowed disabled:opacity-60;
 }
 @utility btn-primary {
-  @apply btn bg-blue-600 text-white hover:bg-blue-700;
+  @apply btn bg-brand-600 text-white shadow-ui hover:bg-brand-700 active:bg-brand-800;
 }
 @utility btn-secondary {
-  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
+  @apply btn border border-line-strong bg-surface text-ink-muted shadow-ui hover:bg-surface-sunken hover:text-ink;
+}
+@utility btn-ghost {
+  @apply btn text-ink-muted hover:bg-surface-sunken hover:text-ink;
 }
 @utility btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700;
+  @apply btn bg-danger text-white shadow-ui hover:bg-red-800;
+}
+/* Botão só com ícone (excluir, fechar…). */
+@utility btn-icon {
+  @apply inline-flex size-8 items-center justify-center rounded-ui text-ink-subtle transition hover:bg-surface-sunken hover:text-ink;
 }
 @utility card {
-  @apply rounded-lg border border-slate-200 bg-white shadow-xs;
+  @apply rounded-ui border border-line bg-surface shadow-ui;
+}
+@utility badge {
+  @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap;
+}
+@utility badge-neutral {
+  @apply badge border-line bg-surface-sunken text-ink-muted;
+}
+@utility badge-brand {
+  @apply badge border-brand-200 bg-brand-50 text-brand-700;
+}
+@utility badge-success {
+  @apply badge border-success-border bg-success-bg text-success;
+}
+@utility badge-warning {
+  @apply badge border-warning-border bg-warning-bg text-warning;
+}
+@utility badge-danger {
+  @apply badge border-danger-border bg-danger-bg text-danger;
+}
+@utility skeleton {
+  @apply animate-pulse rounded-ui bg-surface-sunken;
+}
+
+/* Tabelas de dados: cabeçalho fixo, zebra sutil e hover na linha. */
+@layer components {
+  .data-table {
+    @apply w-full border-separate border-spacing-0 text-sm;
+  }
+  .data-table thead th {
+    @apply sticky top-0 z-[1] border-b border-line bg-surface-muted px-3 py-2.5 text-left text-xs font-semibold tracking-wide text-ink-subtle uppercase;
+  }
+  .data-table tbody td {
+    @apply border-b border-line px-3 py-2.5 align-top;
+  }
+  .data-table tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--surface-muted) 70%, transparent);
+  }
+  .data-table tbody tr:hover td {
+    @apply bg-brand-50/60;
+  }
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
 }
