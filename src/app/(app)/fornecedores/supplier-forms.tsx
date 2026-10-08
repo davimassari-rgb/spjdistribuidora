@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { FormMessage, SubmitButton } from "@/components/form";
+import { formatCents } from "@/lib/format";
 import { initialFormState } from "@/lib/forms";
+import { percentToBp, salePriceCents } from "@/lib/price-math";
 import { createSupplier, renameSupplier, setMarkupAction } from "./actions";
 
 export function NewSupplierForm() {
@@ -44,21 +46,44 @@ export function RenameSupplierForm({ id, name }: { id: string; name: string }) {
 
 export function MarkupForm({ current }: { current: string }) {
   const [state, action] = useActionState(setMarkupAction, initialFormState);
+  const [value, setValue] = useState(current);
+  const bp = percentToBp(value);
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
-      <input
-        className="input w-24"
-        name="markup"
-        inputMode="decimal"
-        defaultValue={current}
-        aria-label="Margem em %"
-      />
-      <span className="text-sm">%</span>
-      <SubmitButton className="btn-secondary">Salvar</SubmitButton>
+    <form action={action} className="space-y-3">
+      <FormMessage state={state} />
+      <div className="flex items-center gap-2">
+        <div className="relative w-28">
+          <input
+            className="input num pr-7 text-right"
+            name="markup"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.currentTarget.value)}
+            aria-label="Margem em %"
+          />
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-ink-subtle">
+            %
+          </span>
+        </div>
+        <SubmitButton className="btn-secondary">Salvar</SubmitButton>
+      </div>
       {state.fieldErrors?.markup && (
-        <p className="w-full text-xs text-red-600">{state.fieldErrors.markup}</p>
+        <p className="text-xs text-danger">{state.fieldErrors.markup}</p>
       )}
-      {state.success && <p className="w-full text-xs text-green-700">{state.success}</p>}
+      <p
+        className="num rounded-ui bg-surface-muted px-3 py-2 text-sm text-ink-muted"
+        aria-live="polite"
+      >
+        Exemplo:{" "}
+        {bp === null ? (
+          <span className="text-danger">percentual inválido</span>
+        ) : (
+          <>
+            R$ 100,00 →{" "}
+            <strong className="text-ink">{formatCents(salePriceCents(10_000, bp))}</strong>
+          </>
+        )}
+      </p>
     </form>
   );
 }

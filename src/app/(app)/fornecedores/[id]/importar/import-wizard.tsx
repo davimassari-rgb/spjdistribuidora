@@ -1,7 +1,9 @@
 "use client";
 
+import { Check, CircleCheck, FileSpreadsheet, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/toast";
 import type { ColumnMapping } from "@/db/schema";
 import {
   type ImportResult,
@@ -56,6 +58,8 @@ export function ImportWizard({
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [dragging, setDragging] = useState(false);
+  const toast = useToast();
 
   function baseForm() {
     const data = new FormData();
@@ -90,7 +94,10 @@ export function ImportWizard({
     data.set("mapping", JSON.stringify(mapping));
     startTransition(async () => {
       const response = await reviewSpreadsheet(data);
-      if (!response.ok) return setError(response.error);
+      if (!response.ok) {
+        toast("error", response.error);
+        return setError(response.error);
+      }
       setReview(response);
     });
   }
@@ -100,7 +107,8 @@ export function ImportWizard({
   const missingRequired = mapping ? FIELDS.filter((f) => f.required && !mapping[f.key]) : [];
 
   if (review && !result) {
-    return (
+    return withSteps(
+      3,
       <ReviewStep
         supplierId={supplierId}
         supplierName={supplierName}
@@ -112,17 +120,22 @@ export function ImportWizard({
           setResult(imported);
           setReview(null);
           setPreview(null);
+          toast("success", "Importação concluída.");
         }}
-      />
+      />,
     );
   }
 
   if (result) {
     const s = result.summary;
-    return (
+    return withSteps(
+      4,
       <div className="space-y-4">
         <div className="card p-4">
-          <h2 className="mb-3 font-semibold text-green-700">Importação concluída</h2>
+          <h2 className="section-title mb-3 flex items-center gap-2 text-success">
+            <CircleCheck className="size-5" aria-hidden />
+            Importação concluída
+          </h2>
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
             <Stat label="Linhas lidas" value={s.totalRows} />
             <Stat label="Peças novas" value={s.createdCount} />
@@ -148,39 +161,85 @@ export function ImportWizard({
           </div>
         </div>
         {result.issues.length > 0 && <IssuesTable issues={result.issues} />}
-      </div>
+      </div>,
     );
   }
 
-  return (
+  function chooseFile(chosen: File | null) {
+    setFile(chosen);
+    setPreview(null);
+    setError(null);
+  }
+
+  return withSteps(
+    preview ? 2 : 1,
     <div className="space-y-4">
       <div className="card space-y-3 p-4">
-        <label className="label" htmlFor="file">
-          Planilha do fornecedor (.xlsx, .xls, .csv, .ods)
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <label
+          htmlFor="file"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            chooseFile(e.dataTransfer.files?.[0] ?? null);
+          }}
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-ui border-2 border-dashed px-6 py-8 text-center transition ${
+            dragging
+              ? "border-brand-500 bg-brand-50"
+              : "border-line-strong bg-surface-muted hover:border-brand-500"
+          }`}
+        >
+          <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+            {file ? (
+              <FileSpreadsheet className="size-5" aria-hidden />
+            ) : (
+              <Upload className="size-5" aria-hidden />
+            )}
+          </span>
+          {file ? (
+            <>
+              <span className="font-medium text-ink">{file.name}</span>
+              <span className="caption num">
+                {(file.size / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB ·
+                clique ou arraste outro arquivo para trocar
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-ink">
+                Arraste a planilha aqui ou clique para escolher
+              </span>
+              <span className="caption">.xlsx, .xls, .csv ou .ods · até 15 MB</span>
+            </>
+          )}
           <input
             id="file"
             type="file"
             accept=".xlsx,.xls,.xlsm,.csv,.ods"
-            className="input"
-            onChange={(e) => {
-              setFile(e.currentTarget.files?.[0] ?? null);
-              setPreview(null);
-              setError(null);
-            }}
+            className="sr-only"
+            onChange={(e) => chooseFile(e.currentTarget.files?.[0] ?? null)}
           />
+        </label>
+        <div className="flex justify-end">
           <button
             type="button"
             className="btn-primary"
             disabled={!file || pending}
             onClick={() => readFile()}
           >
-            {pending && !preview ? "Lendo…" : "Ler planilha"}
+            {pending && !preview && <Loader2 className="size-4 animate-spin" aria-hidden />}
+            {pending && !preview ? "Lendo planilha…" : "Ler planilha"}
           </button>
         </div>
         {error && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p
+            role="alert"
+            className="rounded-ui border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger"
+          >
             {error}
           </p>
         )}
@@ -371,11 +430,47 @@ export function ImportWizard({
           </div>
         </>
       )}
-    </div>
+    </div>,
   );
 }
 
 /** Primeira coluna ainda não mapeada (a faixa nova costuma ser a próxima coluna de preço). */
+const STEPS = ["Enviar planilha", "Mapear colunas", "Revisar produtos", "Concluído"];
+
+/** Indicador de etapas da importação acima do conteúdo da etapa atual. */
+function withSteps(current: number, content: ReactNode) {
+  return (
+    <div className="space-y-4">
+      <ol className="flex flex-wrap items-center gap-2 text-sm" aria-label="Etapas da importação">
+        {STEPS.map((label, index) => {
+          const step = index + 1;
+          const done = step < current;
+          const active = step === current;
+          return (
+            <li key={label} className="flex items-center gap-2">
+              <span
+                aria-current={active ? "step" : undefined}
+                className={`flex size-6 items-center justify-center rounded-full text-xs font-semibold ${
+                  done
+                    ? "bg-green-600 text-white"
+                    : active
+                      ? "bg-brand-600 text-white"
+                      : "bg-surface-sunken text-ink-subtle"
+                }`}
+              >
+                {done ? <Check className="size-3.5" aria-hidden /> : step}
+              </span>
+              <span className={active ? "font-medium text-ink" : "text-ink-subtle"}>{label}</span>
+              {step < STEPS.length && <span className="mx-1 h-px w-6 bg-line-strong" aria-hidden />}
+            </li>
+          );
+        })}
+      </ol>
+      {content}
+    </div>
+  );
+}
+
 function firstUnusedLabel(labels: string[], mapping: ColumnMapping): string {
   const used = new Set<string | null>([
     mapping.code,
