@@ -39,9 +39,19 @@ export const OPPORTUNITY_STAGES = [
   { id: "lost", label: "Perdido", terminal: true, requiresReason: true },
 ] as const satisfies readonly Stage[];
 
+/** Quadro de Pedidos: pedidos feitos pelos clientes no portal, até a entrega. */
+export const ORDER_STAGES = [
+  { id: "received", label: "Recebido" },
+  { id: "purchased", label: "Comprado no fornecedor" },
+  { id: "out_for_delivery", label: "Em entrega" },
+  { id: "delivered", label: "Entregue", terminal: true },
+  { id: "canceled", label: "Cancelado", terminal: true, requiresReason: true },
+] as const satisfies readonly Stage[];
+
 export type ProspectStage = (typeof PROSPECT_STAGES)[number]["id"];
 export type FarmerStage = (typeof FARMER_STAGES)[number]["id"];
 export type OpportunityStage = (typeof OPPORTUNITY_STAGES)[number]["id"];
+export type OrderStage = (typeof ORDER_STAGES)[number]["id"];
 
 export const ids = <T extends readonly { id: string }[]>(stages: T) =>
   stages.map((s) => s.id) as unknown as [T[number]["id"], ...T[number]["id"][]];

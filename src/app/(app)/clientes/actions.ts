@@ -1,9 +1,11 @@
 "use server";
 
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/db/client";
+import { users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current-user";
 import {
   addInteraction,
@@ -19,6 +21,7 @@ import {
 } from "@/lib/clients/clients";
 import { type FormState, formValues, invalidForm } from "@/lib/forms";
 import { getCurrentSegment } from "@/lib/segment-server";
+import { createUser, DuplicateEmailError, userInputSchema } from "@/lib/users";
 import { localDateToTimestamp } from "@/lib/week";
 
 function revalidateClientViews() {
@@ -108,5 +111,40 @@ export async function deleteInteractionAction(formData: FormData): Promise<void>
   const clientId = z.uuid().parse(formData.get("clientId"));
   const interactionId = z.uuid().parse(formData.get("interactionId"));
   await deleteInteraction(getDb(), clientId, interactionId);
+  revalidatePath(`/clientes/${clientId}`);
+}
+
+// ------------------------------------------------------------------ acesso ao portal
+
+export async function addPortalLoginAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireUser();
+  const clientId = z.uuid().safeParse(formData.get("clientId"));
+  if (!clientId.success) return { error: "Cliente inválido." };
+  const parsed = userInputSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalidForm(parsed.error, formData);
+  try {
+    await createUser(getDb(), parsed.data, { clientId: clientId.data });
+  } catch (error) {
+    if (error instanceof DuplicateEmailError) {
+      return { fieldErrors: { email: error.message }, values: formValues(formData) };
+    }
+    throw error;
+  }
+  revalidatePath(`/clientes/${clientId.data}`);
+  return {
+    success: `Acesso criado. Envie ao cliente o endereço do sistema, o e-mail ${parsed.data.email} e a senha definida.`,
+  };
+}
+
+export async function removePortalLoginAction(formData: FormData): Promise<void> {
+  await requireUser();
+  const clientId = z.uuid().parse(formData.get("clientId"));
+  const userId = z.uuid().parse(formData.get("userId"));
+  await getDb()
+    .delete(users)
+    .where(and(eq(users.id, userId), eq(users.clientId, clientId), eq(users.role, "customer")));
   revalidatePath(`/clientes/${clientId}`);
 }

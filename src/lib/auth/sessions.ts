@@ -5,7 +5,14 @@ import { sessions, users } from "@/db/schema";
 
 export const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
-export type SessionUser = { id: string; name: string; email: string };
+export type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+  /** "staff" (equipe) | "customer" (cliente final no portal). */
+  role: string;
+  clientId: string | null;
+};
 
 /** O banco guarda só o hash do token: um vazamento do banco não permite sequestrar sessões. */
 function hashToken(token: string): string {
@@ -31,7 +38,13 @@ export async function findUserBySessionToken(
   now = new Date(),
 ): Promise<SessionUser | null> {
   const [row] = await db
-    .select({ id: users.id, name: users.name, email: users.email })
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      clientId: users.clientId,
+    })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, now)))

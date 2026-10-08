@@ -18,11 +18,17 @@ import {
   stageLabel,
 } from "@/lib/kanban/stages";
 import { clientKindsOf, DEFAULT_SEGMENT, isSegment, segmentLabel } from "@/lib/segments";
-import { listUsers } from "@/lib/users";
+import { listClientLogins, listUsers } from "@/lib/users";
 import { localDate } from "@/lib/week";
-import { deleteClientAction, deleteInteractionAction, updateClientAction } from "../actions";
+import {
+  deleteClientAction,
+  deleteInteractionAction,
+  removePortalLoginAction,
+  updateClientAction,
+} from "../actions";
 import { ClientForm } from "../client-form";
 import { InteractionForm } from "./interaction-form";
+import { PortalLoginForm } from "./portal-access";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -31,11 +37,12 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const db = getDb();
   const client = z.uuid().safeParse(id).success ? await getClient(db, id) : null;
   if (!client) notFound();
-  const [history, deals, users, regions] = await Promise.all([
+  const [history, deals, users, regions, logins] = await Promise.all([
     listInteractions(db, client.id),
     listClientOpportunities(db, client.id),
     listUsers(db),
     listRegions(db, isSegment(client.segment) ? client.segment : undefined),
+    listClientLogins(db, client.id),
   ]);
 
   return (
@@ -155,6 +162,42 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
         </div>
 
         <section className="space-y-4">
+          <div className="card p-4">
+            <h2 className="mb-1 font-semibold">Acesso ao portal de pedidos</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Com um login, o cliente escolhe os produtos de {segmentLabel(client.segment)} e envia
+              o pedido, que cai no quadro de Pedidos.
+            </p>
+            {logins.length > 0 && (
+              <ul className="mb-3 divide-y divide-slate-100 text-sm">
+                {logins.map((login) => (
+                  <li key={login.id} className="flex items-center justify-between gap-2 py-1.5">
+                    <span>
+                      {login.name} · <span className="text-slate-500">{login.email}</span>
+                    </span>
+                    <form action={removePortalLoginAction}>
+                      <input type="hidden" name="clientId" value={client.id} />
+                      <input type="hidden" name="userId" value={login.id} />
+                      <ConfirmButton
+                        message={`Remover o acesso de ${login.email}?`}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        remover
+                      </ConfirmButton>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <details>
+              <summary className="cursor-pointer text-sm font-medium text-blue-700">
+                + Novo acesso
+              </summary>
+              <div className="mt-3">
+                <PortalLoginForm clientId={client.id} />
+              </div>
+            </details>
+          </div>
           <div className="card p-4">
             <h2 className="mb-3 font-semibold">Registrar interação</h2>
             <InteractionForm clientId={client.id} today={localDate(new Date())} />

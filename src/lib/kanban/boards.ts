@@ -271,6 +271,31 @@ export async function prospectBoard(db: Db, filters: SQL[], now = new Date()) {
     .orderBy(asc(clients.prospectPosition), asc(clients.tradeName));
 }
 
+// ================================================================== efeitos de um pedido no cliente
+
+/**
+ * Registra que o cliente fechou um pedido (demanda do Comercial ou pedido do portal):
+ * atualiza o último pedido; prospect/perdido vira cliente ativo; no farmer, o card vai
+ * para "Pedido fechado" se ainda estava antes disso na semana.
+ */
+export async function registerClientOrder(db: Db, clientId: string, now: Date): Promise<void> {
+  const [client] = await db.select().from(clients).where(eq(clients.id, clientId));
+  if (!client) return;
+  const changes: Partial<typeof clients.$inferInsert> = { lastOrderAt: now };
+  if (client.status !== "active") {
+    Object.assign(changes, {
+      status: "active",
+      becameActiveAt: client.becameActiveAt ?? now,
+      prospectStage: client.prospectStage ? "first_order" : null,
+      lostReason: null,
+      farmerStage: "order_closed",
+    });
+  } else if (["to_contact", "contacted", "quoting", null].includes(client.farmerStage)) {
+    changes.farmerStage = "order_closed";
+  }
+  await db.update(clients).set(changes).where(eq(clients.id, client.id));
+}
+
 // ================================================================== Kanban comercial (demandas)
 
 export const opportunityStageSchema = z.enum(ids(OPPORTUNITY_STAGES));
@@ -333,22 +358,7 @@ export async function moveOpportunity(
       })
       .where(eq(opportunities.id, opportunity.id));
 
-    if (isClosed && !wasClosed) {
-      const [client] = await tx.select().from(clients).where(eq(clients.id, opportunity.clientId));
-      const changes: Partial<typeof clients.$inferInsert> = { lastOrderAt: now };
-      if (client.status !== "active") {
-        Object.assign(changes, {
-          status: "active",
-          becameActiveAt: client.becameActiveAt ?? now,
-          prospectStage: client.prospectStage ? "first_order" : null,
-          lostReason: null,
-          farmerStage: "order_closed",
-        });
-      } else if (["to_contact", "contacted", "quoting", null].includes(client.farmerStage)) {
-        changes.farmerStage = "order_closed";
-      }
-      await tx.update(clients).set(changes).where(eq(clients.id, client.id));
-    }
+    if (isClosed && !wasClosed) await registerClientOrder(tx, opportunity.clientId, now);
 
     const column = await tx
       .select({ id: opportunities.id })

@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db/client";
 import { users } from "@/db/schema";
@@ -17,8 +17,9 @@ export class DuplicateEmailError extends Error {
   }
 }
 
+/** Quantos usuários da EQUIPE existem (a configuração inicial só roda com zero). */
 export async function countUsers(db: Db): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(users);
+  const [row] = await db.select({ value: count() }).from(users).where(eq(users.role, "staff"));
   return row.value;
 }
 
@@ -26,10 +27,25 @@ export async function listUsers(db: Db) {
   return db
     .select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt })
     .from(users)
+    .where(eq(users.role, "staff"))
     .orderBy(asc(users.name));
 }
 
-export async function createUser(db: Db, input: UserInput): Promise<{ id: string }> {
+/** Logins do portal de um cliente final. */
+export async function listClientLogins(db: Db, clientId: string) {
+  return db
+    .select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt })
+    .from(users)
+    .where(and(eq(users.role, "customer"), eq(users.clientId, clientId)))
+    .orderBy(asc(users.name));
+}
+
+/** Cria um usuário da equipe ou, com `clientId`, um login de cliente final para o portal. */
+export async function createUser(
+  db: Db,
+  input: UserInput,
+  customerOf?: { clientId: string },
+): Promise<{ id: string }> {
   const existing = await db
     .select({ id: users.id })
     .from(users)
@@ -41,6 +57,7 @@ export async function createUser(db: Db, input: UserInput): Promise<{ id: string
       name: input.name,
       email: input.email,
       passwordHash: await hashPassword(input.password),
+      ...(customerOf ? { role: "customer", clientId: customerOf.clientId } : {}),
     })
     .returning({ id: users.id });
   return row;

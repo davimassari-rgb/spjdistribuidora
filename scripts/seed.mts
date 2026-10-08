@@ -17,6 +17,12 @@ import { normalizeCode } from "../src/lib/text";
 import { createUser } from "../src/lib/users";
 
 export const DEV_USER = { name: "Usuário Dev", email: "dev@spj.test", password: "spj-dev-123" };
+/** Login de cliente final (portal), vinculado ao cliente fictício "Mecânica Modelo (exemplo)". */
+export const DEV_CUSTOMER = {
+  name: "Cliente Dev",
+  email: "cliente@spj.test",
+  password: "cliente-dev-123",
+};
 
 if (process.env.NODE_ENV === "production") {
   console.error("Seed é só para desenvolvimento.");
@@ -162,10 +168,12 @@ try {
       ownerId: dev.id,
       notes: null,
     });
-    console.log("Clientes, interações e demandas fictícias criados.");
+    await createUser(db, DEV_CUSTOMER, { clientId: active1.id });
+    console.log("Clientes, interações, demandas e login do portal fictícios criados.");
   }
 
-  console.log(`Seed concluído. Login: ${DEV_USER.email} / ${DEV_USER.password}`);
+  console.log(`Seed concluído. Equipe: ${DEV_USER.email} / ${DEV_USER.password}`);
+  console.log(`Portal do cliente: ${DEV_CUSTOMER.email} / ${DEV_CUSTOMER.password}`);
 } finally {
   await handle.close();
 }

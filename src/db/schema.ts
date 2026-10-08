@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   doublePrecision,
   index,
@@ -29,6 +30,10 @@ export const users = pgTable("users", {
   name: text().notNull(),
   email: text().notNull().unique(),
   passwordHash: text().notNull(),
+  /** "staff" (equipe SPJ) | "customer" (cliente final, acessa só o portal). */
+  role: text().notNull().default("staff"),
+  /** Para role = "customer": o cliente ao qual este login pertence. */
+  clientId: uuid().references((): AnyPgColumn => clients.id, { onDelete: "cascade" }),
   createdAt: createdAt(),
 });
 
@@ -218,3 +223,56 @@ export const appSettings = pgTable("app_settings", {
   key: text().primaryKey(),
   value: jsonb().notNull(),
 });
+
+// ---------------------------------------------------------------- pedidos (portal do cliente)
+
+/** Pedido feito pelo cliente no portal; acompanhado pela equipe no quadro de Pedidos. */
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    /** Número sequencial para conversar com o cliente ("pedido 123"). */
+    number: integer().generatedAlwaysAsIdentity(),
+    clientId: uuid()
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    createdByUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+    segment: text().notNull(),
+    /** Etapa do quadro de Pedidos (src/lib/kanban/stages.ts). */
+    stage: text().notNull(),
+    position: integer().notNull().default(0),
+    notes: text(),
+    cancelReason: text(),
+    /** Soma dos itens com preço (centavos, preço de venda). */
+    totalCents: integer().notNull().default(0),
+    /** Há itens "sob consulta" (sem preço) no pedido. */
+    hasUnpricedItems: boolean().notNull().default(false),
+    closedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index().on(t.stage), index().on(t.clientId)],
+);
+
+/** Itens do pedido: cópia dos dados da peça e dos preços no momento do pedido. */
+export const orderItems = pgTable(
+  "order_items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orderId: uuid()
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    partId: uuid().references(() => parts.id, { onDelete: "set null" }),
+    supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
+    supplierName: text().notNull(),
+    code: text().notNull(),
+    description: text().notNull(),
+    brand: text(),
+    quantity: integer().notNull(),
+    /** Preço de venda unitário (com margem); null = sob consulta. */
+    unitPriceCents: integer(),
+    /** Custo unitário no fornecedor (nunca exibido ao cliente). */
+    unitCostCents: integer(),
+  },
+  (t) => [index().on(t.orderId)],
+);

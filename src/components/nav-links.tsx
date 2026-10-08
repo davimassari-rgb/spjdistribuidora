@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/catalogo", label: "Catálogo" },
   { href: "/fornecedores", label: "Fornecedores" },
   { href: "/clientes", label: "Clientes" },
+  { href: "/pedidos", label: "Pedidos" },
   { href: "/comercial", label: "Comercial" },
   { href: "/prospeccao", label: "Prospecção" },
   { href: "/farmer", label: "Farmer" },
