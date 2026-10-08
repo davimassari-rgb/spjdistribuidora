@@ -61,7 +61,7 @@ export default async function ProspectingPage(props: PageProps<"/prospeccao">) {
           content: (
             <ClientCardContent {...card}>
               {card.stage === "lost" && card.lostReason && (
-                <p className="text-xs text-red-700">Motivo: {card.lostReason}</p>
+                <p className="badge-danger whitespace-normal">Motivo: {card.lostReason}</p>
               )}
             </ClientCardContent>
           ),

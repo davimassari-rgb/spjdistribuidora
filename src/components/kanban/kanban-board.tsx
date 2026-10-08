@@ -23,11 +23,21 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { type ReactNode, useId, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/toast";
+import { formatCents } from "@/lib/format";
 import type { Stage } from "@/lib/kanban/stages";
 import { ReasonDialog } from "./reason-dialog";
 
 /** Card já renderizado no servidor; o quadro só cuida de posição e arrasto. */
-export type KanbanCard = { id: string; stage: string; content: ReactNode; highlight?: boolean };
+export type KanbanCard = {
+  id: string;
+  stage: string;
+  content: ReactNode;
+  /** Destaque de alerta (ex.: cliente há muitas semanas sem pedido). */
+  highlight?: boolean;
+  /** Valor do card em centavos, somado no cabeçalho da coluna quando `showTotals`. */
+  valueCents?: number | null;
+};
 
 export type MoveInput = { id: string; stage: string; index: number; reason?: string };
 export type MoveResult = { error?: string };
@@ -48,14 +58,18 @@ export function KanbanBoard({
   cards,
   move,
   columnNotes = {},
+  showTotals = false,
 }: {
   stages: readonly Stage[];
   cards: KanbanCard[];
   move: (input: MoveInput) => Promise<MoveResult>;
   /** Texto pequeno abaixo do título da coluna (ex.: "últimos 30 dias"). */
   columnNotes?: Record<string, string>;
+  /** Mostra a soma dos valores (R$) de cada coluna. */
+  showTotals?: boolean;
 }) {
   const dndId = useId();
+  const toast = useToast();
   const byId = new Map(cards.map((card) => [card.id, card]));
   const [columns, setColumns] = useState(() => groupByStage(stages, cards));
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -104,6 +118,7 @@ export function KanbanBoard({
       const result = await move(input);
       if (result.error) {
         setError(result.error);
+        toast("error", result.error);
         setColumns(rollback);
       }
     });
@@ -178,7 +193,10 @@ export function KanbanBoard({
   return (
     <>
       {error && (
-        <p role="alert" className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p
+          role="alert"
+          className="mb-3 rounded-ui border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger"
+        >
           {error}
         </p>
       )}
@@ -194,13 +212,23 @@ export function KanbanBoard({
           if (snapshot) setColumns(snapshot);
         }}
       >
-        <div className={`flex gap-3 overflow-x-auto pb-4 ${pending ? "cursor-progress" : ""}`}>
+        <div
+          className={`flex h-[calc(100vh-12rem)] min-h-[28rem] gap-3 overflow-x-auto pb-2 ${pending ? "cursor-progress" : ""}`}
+        >
           {stages.map((stage) => (
             <Column
               key={stage.id}
               stage={stage}
               ids={columns[stage.id] ?? []}
               note={columnNotes[stage.id]}
+              totalCents={
+                showTotals
+                  ? (columns[stage.id] ?? []).reduce(
+                      (sum, id) => sum + (byId.get(id)?.valueCents ?? 0),
+                      0,
+                    )
+                  : undefined
+              }
             >
               {(columns[stage.id] ?? []).map((id) => {
                 const card = byId.get(id);
@@ -208,7 +236,7 @@ export function KanbanBoard({
                 return (
                   <SortableCard key={id} card={card}>
                     <select
-                      className="mt-2 w-full rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-xs text-slate-600"
+                      className="mt-2 w-full rounded-md border border-line bg-surface-muted px-1.5 py-1 text-xs text-ink-subtle hover:border-line-strong"
                       aria-label="Mover para"
                       value=""
                       onChange={(e) => moveTo(id, e.currentTarget.value)}
@@ -258,33 +286,62 @@ export function KanbanBoard({
   );
 }
 
+const TONE: Record<NonNullable<Stage["tone"]>, { bar: string; dot: string }> = {
+  neutral: { bar: "border-t-slate-400", dot: "bg-slate-400" },
+  brand: { bar: "border-t-brand-500", dot: "bg-brand-500" },
+  warning: { bar: "border-t-amber-500", dot: "bg-amber-500" },
+  success: { bar: "border-t-green-600", dot: "bg-green-600" },
+  danger: { bar: "border-t-red-500", dot: "bg-red-500" },
+};
+
 function Column({
   stage,
   ids,
   note,
+  totalCents,
   children,
 }: {
   stage: Stage;
   ids: string[];
   note?: string;
+  totalCents?: number;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+  const tone = TONE[stage.tone ?? "neutral"];
   return (
     <section
       ref={setNodeRef}
-      className={`flex w-72 flex-none flex-col rounded-lg border p-2 ${
-        isOver ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-100"
+      className={`flex h-full w-72 flex-none flex-col rounded-ui border border-t-4 ${tone.bar} transition ${
+        isOver ? "border-brand-200 bg-brand-50" : "border-line bg-surface-sunken"
       }`}
       aria-label={stage.label}
     >
-      <header className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-sm font-semibold text-slate-700">{stage.label}</h2>
-        <span className="rounded-full bg-white px-2 text-xs text-slate-500">{ids.length}</span>
+      <header className="px-3 pt-2.5 pb-2">
+        <div className="flex items-center gap-2">
+          <span className={`size-2 rounded-full ${tone.dot}`} aria-hidden />
+          <h2 className="flex-1 truncate text-sm font-semibold text-ink">{stage.label}</h2>
+          <span className="num rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted shadow-ui">
+            {ids.length}
+          </span>
+        </div>
+        {totalCents !== undefined && (
+          <p className="num mt-1 text-sm font-semibold text-ink-muted">
+            {formatCents(totalCents, "R$ 0,00")}
+          </p>
+        )}
+        {note && <p className="caption mt-0.5">{note}</p>}
       </header>
-      {note && <p className="-mt-1 mb-2 px-1 text-xs text-slate-400">{note}</p>}
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <div className="flex min-h-24 flex-1 flex-col gap-2">{children}</div>
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+          {ids.length === 0 ? (
+            <p className="rounded-ui border border-dashed border-line-strong px-3 py-6 text-center text-xs text-ink-subtle">
+              Arraste um card para cá
+            </p>
+          ) : (
+            children
+          )}
+        </div>
       </SortableContext>
     </section>
   );
@@ -321,9 +378,9 @@ function CardShell({
 }) {
   return (
     <article
-      className={`cursor-grab touch-manipulation rounded-md border bg-white p-2.5 text-sm shadow-xs ${
-        highlight ? "border-red-300 ring-1 ring-red-200" : "border-slate-200"
-      } ${dragging ? "rotate-1 shadow-lg" : ""}`}
+      className={`cursor-grab touch-manipulation rounded-ui border bg-surface p-3 text-sm shadow-ui transition hover:shadow-pop ${
+        highlight ? "border-danger-border border-l-4 border-l-red-500" : "border-line"
+      } ${dragging ? "rotate-1 shadow-modal" : ""}`}
     >
       {children}
     </article>

@@ -1,16 +1,18 @@
 import type { SQL } from "drizzle-orm";
 import { eq } from "drizzle-orm";
+import { Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { ConfirmButton } from "@/components/confirm-button";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { PageHeader } from "@/components/page-header";
+import { Avatar } from "@/components/ui/avatar";
 import { getDb } from "@/db/client";
 import { clients, opportunities } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current-user";
 import { listClientOptions } from "@/lib/clients/clients";
-import { formatCents, formatDate } from "@/lib/format";
+import { formatCents, formatDate, formatRelative } from "@/lib/format";
 import { opportunityBoard } from "@/lib/kanban/boards";
 import { OPPORTUNITY_STAGES, TERMINAL_VISIBLE_DAYS } from "@/lib/kanban/stages";
 import { param, type SearchParams } from "@/lib/search-params";
@@ -50,8 +52,8 @@ export default async function CommercialPage(props: PageProps<"/comercial">) {
         description={
           <>
             Demandas dos clientes, da solicitação à entrega. Em aberto:{" "}
-            <strong>{formatCents(openTotal, "R$ 0,00")}</strong>. Ao fechar o pedido, o cliente é
-            marcado no Farmer (e um prospect vira cliente ativo).
+            <strong className="num text-ink">{formatCents(openTotal, "R$ 0,00")}</strong>. Ao fechar
+            o pedido, o cliente é marcado no Farmer (e um prospect vira cliente ativo).
           </>
         }
         actions={
@@ -77,7 +79,7 @@ export default async function CommercialPage(props: PageProps<"/comercial">) {
       />
 
       <details className="card mb-4 p-3" open={Boolean(preselected)}>
-        <summary className="cursor-pointer font-medium text-blue-700">+ Nova demanda</summary>
+        <summary className="cursor-pointer font-medium text-brand-700">+ Nova demanda</summary>
         <div className="mt-3">
           {clientOptions.length === 0 ? (
             <p className="text-sm text-slate-500">
@@ -105,37 +107,46 @@ export default async function CommercialPage(props: PageProps<"/comercial">) {
           delivered: `Últimos ${TERMINAL_VISIBLE_DAYS} dias`,
           lost: `Últimos ${TERMINAL_VISIBLE_DAYS} dias`,
         }}
+        showTotals
         cards={cards.map((card) => ({
           id: card.id,
           stage: card.stage,
+          valueCents: card.valueCents,
           content: (
-            <div className="space-y-1">
-              <p className="font-medium">{card.title}</p>
-              <Link
-                href={`/clientes/${card.clientId}`}
-                className="block text-xs text-blue-700 hover:underline"
-              >
-                {card.clientName}
-              </Link>
-              {card.valueCents !== null && (
-                <p className="text-sm font-semibold">{formatCents(card.valueCents)}</p>
-              )}
-              {card.stage === "lost" && card.lostReason && (
-                <p className="text-xs text-red-700">Motivo: {card.lostReason}</p>
-              )}
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>
-                  {card.ownerName ?? "Sem responsável"} · {formatDate(card.createdAt)}
-                </span>
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="leading-snug font-semibold text-ink">{card.title}</p>
                 <form action={deleteOpportunityAction}>
                   <input type="hidden" name="id" value={card.id} />
                   <ConfirmButton
                     message="Excluir esta demanda?"
-                    className="text-red-600 hover:underline"
+                    className="btn-icon -mt-1 -mr-1 size-7 hover:text-danger"
                   >
-                    excluir
+                    <Trash2 className="size-4" aria-hidden />
+                    <span className="sr-only">Excluir demanda</span>
                   </ConfirmButton>
                 </form>
+              </div>
+              <Link
+                href={`/clientes/${card.clientId}`}
+                className="block text-xs font-medium text-brand-700 hover:underline"
+              >
+                {card.clientName}
+              </Link>
+              {card.valueCents !== null && (
+                <p className="num text-lg font-semibold text-ink">{formatCents(card.valueCents)}</p>
+              )}
+              {card.stage === "lost" && card.lostReason && (
+                <p className="badge-danger whitespace-normal">Motivo: {card.lostReason}</p>
+              )}
+              <div className="flex items-center justify-between text-xs text-ink-subtle">
+                <span className="flex items-center gap-1.5">
+                  {card.ownerName && <Avatar name={card.ownerName} size="sm" />}
+                  {card.ownerName ?? "Sem responsável"}
+                </span>
+                <time dateTime={card.createdAt.toISOString()} title={formatDate(card.createdAt)}>
+                  {formatRelative(card.createdAt)}
+                </time>
               </div>
             </div>
           ),

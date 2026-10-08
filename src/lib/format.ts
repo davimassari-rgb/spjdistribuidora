@@ -53,3 +53,17 @@ export function formatPhone(digits: string | null | undefined): string {
   if (digits.length === 10) return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
   return digits;
 }
+
+/** "agora", "há 5 min", "há 3 h", "ontem", "há 4 dias", ou a data (mais de 30 dias). */
+export function formatRelative(date: Date | null | undefined, now = new Date()): string {
+  if (!date) return "—";
+  const minutes = Math.round((now.getTime() - date.getTime()) / 60_000);
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "ontem";
+  if (days <= 30) return `há ${days} dias`;
+  return formatDate(date);
+}

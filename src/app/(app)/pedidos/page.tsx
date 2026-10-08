@@ -3,7 +3,7 @@ import Link from "next/link";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { PageHeader } from "@/components/page-header";
 import { getDb } from "@/db/client";
-import { formatCents, formatDateTime } from "@/lib/format";
+import { formatCents, formatDateTime, formatRelative } from "@/lib/format";
 import { ORDER_STAGES, TERMINAL_VISIBLE_DAYS } from "@/lib/kanban/stages";
 import { orderBoard } from "@/lib/orders";
 import { getCurrentSegment } from "@/lib/segment-server";
@@ -29,32 +29,45 @@ export default async function OrdersPage() {
           delivered: `Últimos ${TERMINAL_VISIBLE_DAYS} dias`,
           canceled: `Últimos ${TERMINAL_VISIBLE_DAYS} dias`,
         }}
+        showTotals
         cards={cards.map((card) => ({
           id: card.id,
           stage: card.stage,
-          highlight: card.stage === "received",
+          valueCents: card.totalCents,
           content: (
-            <div className="space-y-1">
-              <Link href={`/pedidos/${card.id}`} className="block font-medium hover:underline">
-                Pedido {card.number}
-              </Link>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  href={`/pedidos/${card.id}`}
+                  className="font-semibold text-ink hover:text-brand-700 hover:underline"
+                >
+                  Pedido {card.number}
+                </Link>
+                {card.stage === "received" && <span className="badge-brand">novo</span>}
+              </div>
               <Link
                 href={`/clientes/${card.clientId}`}
-                className="block text-xs text-blue-700 hover:underline"
+                className="block text-xs font-medium text-brand-700 hover:underline"
               >
                 {card.clientName}
               </Link>
-              <p className="text-sm">
-                {card.itemCount} item(ns) ·{" "}
-                <strong>{formatCents(card.totalCents, "R$ 0,00")}</strong>
-                {card.hasUnpricedItems && (
-                  <span className="text-xs text-amber-700"> + sob consulta</span>
-                )}
+              <p className="num text-lg font-semibold text-ink">
+                {formatCents(card.totalCents, "R$ 0,00")}
               </p>
+              <div className="flex flex-wrap gap-1">
+                <span className="badge-neutral">{card.itemCount} item(ns)</span>
+                {card.hasUnpricedItems && <span className="badge-warning">sob consulta</span>}
+              </div>
               {card.stage === "canceled" && card.cancelReason && (
-                <p className="text-xs text-red-700">Motivo: {card.cancelReason}</p>
+                <p className="badge-danger whitespace-normal">Motivo: {card.cancelReason}</p>
               )}
-              <p className="text-xs text-slate-500">{formatDateTime(card.createdAt)}</p>
+              <time
+                className="caption block"
+                dateTime={card.createdAt.toISOString()}
+                title={formatDateTime(card.createdAt)}
+              >
+                {formatRelative(card.createdAt)}
+              </time>
             </div>
           ),
         }))}

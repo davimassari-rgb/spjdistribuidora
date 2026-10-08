@@ -44,7 +44,7 @@ export default async function FarmerPage(props: PageProps<"/farmer">) {
             Semana de {formatDate(monday)}. Toda segunda-feira os cards em “Contatado”, “Pedido
             fechado” e “Entregue” voltam para “A contatar”; “Cotação em andamento” continua.
             {alerts > 0 && (
-              <span className="ml-1 font-medium text-red-700">
+              <span className="badge-danger ml-1">
                 {alerts} cliente(s) há {alertWeeks}+ semanas sem pedido.
               </span>
             )}
@@ -88,13 +88,15 @@ export default async function FarmerPage(props: PageProps<"/farmer">) {
           highlight: card.alert,
           content: (
             <ClientCardContent {...card}>
-              <p
-                className={`text-xs ${card.alert ? "font-medium text-red-700" : "text-slate-500"}`}
-              >
-                {card.lastOrderAt
-                  ? `Último pedido: ${formatDate(card.lastOrderAt)} (${card.weeksWithoutOrder} sem.)`
-                  : `Sem pedido registrado (${card.weeksWithoutOrder} sem. como cliente)`}
-              </p>
+              {card.alert ? (
+                <p className="badge-danger">{card.weeksWithoutOrder} sem. sem pedido</p>
+              ) : (
+                <p className="caption">
+                  {card.lastOrderAt
+                    ? `Último pedido: ${formatDate(card.lastOrderAt)} (${card.weeksWithoutOrder} sem.)`
+                    : `Sem pedido registrado (${card.weeksWithoutOrder} sem. como cliente)`}
+                </p>
+              )}
             </ClientCardContent>
           ),
         }))}

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { CLIENT_STATUSES } from "@/lib/kanban/stages";
 
@@ -36,6 +38,7 @@ export function ClientFilters({
         />
       )}
       <select
+        onChange={(e) => e.currentTarget.form?.requestSubmit()}
         className="input md:w-auto"
         name="tipo"
         defaultValue={values.kind ?? ""}
@@ -49,6 +52,7 @@ export function ClientFilters({
         ))}
       </select>
       <select
+        onChange={(e) => e.currentTarget.form?.requestSubmit()}
         className="input md:w-auto"
         name="regiao"
         defaultValue={values.region ?? ""}
@@ -62,6 +66,7 @@ export function ClientFilters({
         ))}
       </select>
       <select
+        onChange={(e) => e.currentTarget.form?.requestSubmit()}
         className="input md:w-auto"
         name="responsavel"
         defaultValue={values.ownerId ?? ""}
@@ -77,6 +82,7 @@ export function ClientFilters({
       </select>
       {showStatus && (
         <select
+          onChange={(e) => e.currentTarget.form?.requestSubmit()}
           className="input md:w-auto"
           name="situacao"
           defaultValue={values.status ?? ""}
@@ -91,7 +97,7 @@ export function ClientFilters({
         </select>
       )}
       <div className="flex gap-2">
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-secondary">
           Filtrar
         </button>
         <Link href={action} className="btn-secondary">

@@ -10,42 +10,44 @@ export type Stage = {
   terminal?: boolean;
   /** Mover para esta coluna pede um motivo (ex.: Perdido). */
   requiresReason?: boolean;
+  /** Cor do cabeçalho da coluna (só visual). */
+  tone?: "neutral" | "brand" | "warning" | "success" | "danger";
 };
 
 export const PROSPECT_STAGES = [
-  { id: "lead", label: "Lead" },
-  { id: "first_contact", label: "Primeiro contato" },
-  { id: "presentation", label: "Apresentação / visita" },
-  { id: "quote_sent", label: "Cotação enviada" },
-  { id: "first_order", label: "Primeiro pedido", terminal: true },
-  { id: "lost", label: "Perdido", terminal: true, requiresReason: true },
+  { id: "lead", label: "Lead", tone: "neutral" },
+  { id: "first_contact", label: "Primeiro contato", tone: "brand" },
+  { id: "presentation", label: "Apresentação / visita", tone: "brand" },
+  { id: "quote_sent", label: "Cotação enviada", tone: "warning" },
+  { id: "first_order", label: "Primeiro pedido", terminal: true, tone: "success" },
+  { id: "lost", label: "Perdido", terminal: true, requiresReason: true, tone: "danger" },
 ] as const satisfies readonly Stage[];
 
 export const FARMER_STAGES = [
-  { id: "to_contact", label: "A contatar nesta semana" },
-  { id: "contacted", label: "Contatado" },
-  { id: "quoting", label: "Cotação em andamento" },
-  { id: "order_closed", label: "Pedido fechado" },
-  { id: "delivered", label: "Entregue" },
+  { id: "to_contact", label: "A contatar nesta semana", tone: "brand" },
+  { id: "contacted", label: "Contatado", tone: "neutral" },
+  { id: "quoting", label: "Cotação em andamento", tone: "warning" },
+  { id: "order_closed", label: "Pedido fechado", tone: "success" },
+  { id: "delivered", label: "Entregue", tone: "success" },
 ] as const satisfies readonly Stage[];
 
 /** Kanban comercial: cada card é uma demanda de peça/cotação de um cliente. */
 export const OPPORTUNITY_STAGES = [
-  { id: "requested", label: "Solicitação" },
-  { id: "quoting", label: "Cotando no fornecedor" },
-  { id: "quote_sent", label: "Cotação enviada" },
-  { id: "order_closed", label: "Pedido fechado", terminal: true },
-  { id: "delivered", label: "Entregue", terminal: true },
-  { id: "lost", label: "Perdido", terminal: true, requiresReason: true },
+  { id: "requested", label: "Solicitação", tone: "neutral" },
+  { id: "quoting", label: "Cotando no fornecedor", tone: "warning" },
+  { id: "quote_sent", label: "Cotação enviada", tone: "warning" },
+  { id: "order_closed", label: "Pedido fechado", terminal: true, tone: "success" },
+  { id: "delivered", label: "Entregue", terminal: true, tone: "success" },
+  { id: "lost", label: "Perdido", terminal: true, requiresReason: true, tone: "danger" },
 ] as const satisfies readonly Stage[];
 
 /** Quadro de Pedidos: pedidos feitos pelos clientes no portal, até a entrega. */
 export const ORDER_STAGES = [
-  { id: "received", label: "Recebido" },
-  { id: "purchased", label: "Comprado no fornecedor" },
-  { id: "out_for_delivery", label: "Em entrega" },
-  { id: "delivered", label: "Entregue", terminal: true },
-  { id: "canceled", label: "Cancelado", terminal: true, requiresReason: true },
+  { id: "received", label: "Recebido", tone: "brand" },
+  { id: "purchased", label: "Comprado no fornecedor", tone: "warning" },
+  { id: "out_for_delivery", label: "Em entrega", tone: "warning" },
+  { id: "delivered", label: "Entregue", terminal: true, tone: "success" },
+  { id: "canceled", label: "Cancelado", terminal: true, requiresReason: true, tone: "danger" },
 ] as const satisfies readonly Stage[];
 
 export type ProspectStage = (typeof PROSPECT_STAGES)[number]["id"];

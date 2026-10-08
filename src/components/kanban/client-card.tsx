@@ -1,5 +1,7 @@
+import { MapPin, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { whatsappLink } from "@/lib/br";
 import { CLIENT_KINDS } from "@/lib/kanban/stages";
 
@@ -22,28 +24,43 @@ export function ClientCardContent({
   children?: ReactNode;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <Link
         href={`/clientes/${id}`}
-        className="block font-medium text-slate-900 hover:text-blue-700 hover:underline"
+        className="block leading-snug font-semibold text-ink hover:text-brand-700 hover:underline"
       >
         {title}
       </Link>
-      <div className="text-xs text-slate-500">
-        {[CLIENT_KINDS[kind as keyof typeof CLIENT_KINDS], region].filter(Boolean).join(" · ")}
-      </div>
-      {children}
-      <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-        <span>{ownerName ?? "Sem responsável"}</span>
+      <div className="flex flex-wrap gap-1">
+        <span className="badge-neutral">{CLIENT_KINDS[kind] ?? kind}</span>
+        {region && (
+          <span className="badge-neutral">
+            <MapPin className="size-3" aria-hidden />
+            {region}
+          </span>
+        )}
         {whatsapp && (
           <a
             href={whatsappLink(whatsapp)}
             target="_blank"
             rel="noreferrer"
-            className="rounded bg-green-50 px-1.5 py-0.5 text-green-700 hover:bg-green-100"
+            className="badge-success hover:bg-green-100"
+            aria-label={`WhatsApp de ${title}`}
           >
+            <MessageCircle className="size-3" aria-hidden />
             WhatsApp
           </a>
+        )}
+      </div>
+      {children}
+      <div className="flex items-center gap-1.5 text-xs text-ink-subtle">
+        {ownerName ? (
+          <>
+            <Avatar name={ownerName} size="sm" />
+            {ownerName}
+          </>
+        ) : (
+          "Sem responsável"
         )}
       </div>
     </div>
