@@ -1,8 +1,11 @@
+import { UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { KindLabel, StatusBadge } from "@/components/client-badges";
+import { DaysSinceOrder, KindLabel, StatusBadge } from "@/components/client-badges";
 import { ClientFilters } from "@/components/client-filters";
 import { PageHeader } from "@/components/page-header";
+import { Avatar } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getDb } from "@/db/client";
 import { listClients, listRegions } from "@/lib/clients/clients";
 import { clientFiltersFrom } from "@/lib/clients/filters";
@@ -30,7 +33,7 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
     <>
       <PageHeader
         title="Clientes"
-        description="Clientes ativos e potenciais clientes (oficinas e lojas de autopeças)."
+        description="Clientes ativos e potenciais clientes deste segmento."
         actions={
           <Link href="/clientes/novo" className="btn-primary">
             Novo cliente
@@ -47,69 +50,93 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
       />
 
       {rows.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-slate-500">
-          Nenhum cliente encontrado.
-        </div>
+        <EmptyState
+          icon={UsersRound}
+          title="Nenhum cliente encontrado"
+          description="Ajuste os filtros ou cadastre um novo cliente neste segmento."
+          action={
+            <Link href="/clientes/novo" className="btn-primary">
+              Novo cliente
+            </Link>
+          }
+        />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-slate-500">
+        <div className="card max-h-[calc(100vh-14rem)] overflow-auto">
+          <table className="data-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium">Cliente</th>
-                <th className="px-3 py-2 font-medium">Tipo</th>
-                <th className="hidden px-3 py-2 font-medium md:table-cell">Contato</th>
-                <th className="hidden px-3 py-2 font-medium md:table-cell">Região</th>
-                <th className="hidden px-3 py-2 font-medium lg:table-cell">Responsável</th>
-                <th className="px-3 py-2 font-medium">Situação</th>
-                <th className="hidden px-3 py-2 font-medium lg:table-cell">Último pedido</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th className="hidden md:table-cell">Contato</th>
+                <th className="hidden md:table-cell">Região</th>
+                <th className="hidden lg:table-cell">Responsável</th>
+                <th>Situação</th>
+                <th className="hidden sm:table-cell">Desde o último pedido</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((client) => (
-                <tr key={client.id} className="border-b border-slate-100 align-top last:border-0">
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/clientes/${client.id}`}
-                      className="font-medium text-blue-700 hover:underline"
-                    >
-                      {client.tradeName}
-                    </Link>
-                    {client.cnpj && (
-                      <div className="text-xs text-slate-500">{formatCnpj(client.cnpj)}</div>
-                    )}
+                <tr key={client.id}>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={client.tradeName} />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/clientes/${client.id}`}
+                          className="font-medium text-ink hover:text-brand-700 hover:underline"
+                        >
+                          {client.tradeName}
+                        </Link>
+                        {client.cnpj && (
+                          <div className="caption num whitespace-nowrap">
+                            {formatCnpj(client.cnpj)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-3 py-2">
+                  <td>
                     <KindLabel kind={client.kind} />
                   </td>
-                  <td className="hidden px-3 py-2 md:table-cell">
+                  <td className="hidden md:table-cell">
                     <div>{client.contactName ?? "—"}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="caption num">
                       {formatPhone(client.whatsapp ?? client.phone)}
                     </div>
                   </td>
-                  <td className="hidden px-3 py-2 md:table-cell">
+                  <td className="hidden md:table-cell">
                     {[client.region, client.city].filter(Boolean).join(" · ") || "—"}
                   </td>
-                  <td className="hidden px-3 py-2 lg:table-cell">{client.ownerName ?? "—"}</td>
-                  <td className="px-3 py-2">
+                  <td className="hidden lg:table-cell">
+                    {client.ownerName ? (
+                      <span className="flex items-center gap-2">
+                        <Avatar name={client.ownerName} size="sm" />
+                        {client.ownerName}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>
                     <StatusBadge status={client.status} />
-                    <div className="mt-0.5 text-xs text-slate-500">
+                    <div className="caption mt-1">
                       {client.status === "active"
                         ? stageLabel(FARMER_STAGES, client.farmerStage)
                         : stageLabel(PROSPECT_STAGES, client.prospectStage)}
                     </div>
                   </td>
-                  <td className="hidden px-3 py-2 lg:table-cell">
-                    {formatDate(client.lastOrderAt)}
+                  <td className="hidden sm:table-cell">
+                    <DaysSinceOrder date={client.lastOrderAt} />
+                    {client.lastOrderAt && (
+                      <div className="caption num mt-1">{formatDate(client.lastOrderAt)}</div>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {rows.length >= 500 && (
-            <p className="px-3 py-2 text-xs text-slate-500">
-              Mostrando os 500 primeiros. Use os filtros.
-            </p>
+            <p className="caption px-3 py-2">Mostrando os 500 primeiros. Use os filtros.</p>
           )}
         </div>
       )}
