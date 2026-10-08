@@ -10,6 +10,8 @@ import { formatDate } from "@/lib/format";
 import { farmerBoard, rolloverFarmerWeek } from "@/lib/kanban/boards";
 import { FARMER_STAGES } from "@/lib/kanban/stages";
 import type { SearchParams } from "@/lib/search-params";
+import { getCurrentSegment } from "@/lib/segment-server";
+import { clientKindsOf } from "@/lib/segments";
 import { listUsers } from "@/lib/users";
 import { weekStart } from "@/lib/week";
 import { moveFarmerAction, setAlertWeeksAction } from "./actions";
@@ -19,14 +21,15 @@ export const metadata: Metadata = { title: "Farmer" };
 /** Kanban farmer: relacionamento semanal com a carteira de clientes ativos. */
 export default async function FarmerPage(props: PageProps<"/farmer">) {
   const params = (await props.searchParams) as SearchParams;
-  const filters = { ...clientFiltersFrom(params), q: undefined, status: undefined };
+  const segment = await getCurrentSegment();
+  const filters = { ...clientFiltersFrom(params, segment), q: undefined, status: undefined };
   const db = getDb();
   const now = new Date();
   // A virada da semana acontece aqui, na primeira abertura do quadro na semana.
   await rolloverFarmerWeek(db, now);
   const [{ cards, alertWeeks }, regions, users] = await Promise.all([
     farmerBoard(db, clientFilterConditions(filters), now),
-    listRegions(db),
+    listRegions(db, segment),
     listUsers(db),
   ]);
   const alerts = cards.filter((card) => card.alert).length;
@@ -69,6 +72,7 @@ export default async function FarmerPage(props: PageProps<"/farmer">) {
         }
       />
       <ClientFilters
+        kinds={clientKindsOf(segment)}
         action="/farmer"
         values={filters}
         regions={regions}

@@ -7,13 +7,14 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { PageHeader } from "@/components/page-header";
 import { getDb } from "@/db/client";
-import { opportunities } from "@/db/schema";
+import { clients, opportunities } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current-user";
 import { listClientOptions } from "@/lib/clients/clients";
 import { formatCents, formatDate } from "@/lib/format";
 import { opportunityBoard } from "@/lib/kanban/boards";
 import { OPPORTUNITY_STAGES, TERMINAL_VISIBLE_DAYS } from "@/lib/kanban/stages";
 import { param, type SearchParams } from "@/lib/search-params";
+import { getCurrentSegment } from "@/lib/segment-server";
 import { listUsers } from "@/lib/users";
 import { deleteOpportunityAction, moveOpportunityAction } from "./actions";
 import { OpportunityForm } from "./opportunity-form";
@@ -27,14 +28,15 @@ export default async function CommercialPage(props: PageProps<"/comercial">) {
   const db = getDb();
   const preselected = param(params, "novo");
   const ownerFilter = param(params, "responsavel");
-  const filters: SQL[] = [];
+  const segment = await getCurrentSegment();
+  const filters: SQL[] = [eq(clients.segment, segment)];
   if (ownerFilter && z.uuid().safeParse(ownerFilter).success) {
     filters.push(eq(opportunities.ownerId, ownerFilter));
   }
 
   const [cards, clientOptions, users] = await Promise.all([
     opportunityBoard(db, filters),
-    listClientOptions(db),
+    listClientOptions(db, segment),
     listUsers(db),
   ]);
   const openTotal = cards

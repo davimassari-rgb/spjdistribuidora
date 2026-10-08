@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { FormMessage, SubmitButton } from "@/components/form";
 import { initialFormState } from "@/lib/forms";
-import { createSupplier, renameSupplier } from "./actions";
+import { createSupplier, renameSupplier, setMarkupAction } from "./actions";
 
 export function NewSupplierForm() {
   const [state, action] = useActionState(createSupplier, initialFormState);
@@ -38,6 +38,27 @@ export function RenameSupplierForm({ id, name }: { id: string; name: string }) {
       </div>
       {state.fieldErrors?.name && <p className="text-xs text-red-600">{state.fieldErrors.name}</p>}
       {state.success && <p className="text-xs text-green-700">{state.success}</p>}
+    </form>
+  );
+}
+
+export function MarkupForm({ current }: { current: string }) {
+  const [state, action] = useActionState(setMarkupAction, initialFormState);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input
+        className="input w-24"
+        name="markup"
+        inputMode="decimal"
+        defaultValue={current}
+        aria-label="Margem em %"
+      />
+      <span className="text-sm">%</span>
+      <SubmitButton className="btn-secondary">Salvar</SubmitButton>
+      {state.fieldErrors?.markup && (
+        <p className="w-full text-xs text-red-600">{state.fieldErrors.markup}</p>
+      )}
+      {state.success && <p className="w-full text-xs text-green-700">{state.success}</p>}
     </form>
   );
 }

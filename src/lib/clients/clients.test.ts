@@ -6,6 +6,7 @@ import {
   clientInputSchema,
   createClient,
   DuplicateCnpjError,
+  InvalidKindError,
   listClients,
   listInteractions,
   listRegions,
@@ -124,5 +125,32 @@ describe("clientes", () => {
     });
     const history = await listInteractions(handle.db, alfa.id);
     expect(history.map((h) => h.note)).toEqual(["Visita na oficina", "Primeira ligação"]);
+  });
+});
+
+describe("segmentos", () => {
+  let handle: DbHandle;
+  beforeAll(async () => {
+    handle = await createTestDb();
+  });
+  afterAll(() => handle.close());
+
+  it("separa clientes por segmento e exige tipo do próprio segmento", async () => {
+    const base = parse({ tradeName: "Salão Bela", kind: "beauty_salon" });
+    if (!base.success) throw base.error;
+    await createClient(handle.db, base.data, "prospect", new Date(), "cosmetics");
+    const auto = parse({ tradeName: "Oficina X", kind: "workshop" });
+    if (!auto.success) throw auto.error;
+    await createClient(handle.db, auto.data, "prospect");
+
+    expect(
+      (await listClients(handle.db, { segment: "cosmetics" })).map((c) => c.tradeName),
+    ).toEqual(["Salão Bela"]);
+    expect(
+      (await listClients(handle.db, { segment: "auto_parts" })).map((c) => c.tradeName),
+    ).toEqual(["Oficina X"]);
+    await expect(
+      createClient(handle.db, auto.data, "prospect", new Date(), "food"),
+    ).rejects.toBeInstanceOf(InvalidKindError);
   });
 });

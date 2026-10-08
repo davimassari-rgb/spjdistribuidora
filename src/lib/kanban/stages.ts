@@ -1,3 +1,5 @@
+import { ALL_CLIENT_KINDS } from "@/lib/segments";
+
 // Etapas dos Kanbans e listas fixas. Para ajustar as etapas, edite este arquivo
 // (são gravadas como texto no banco; renomear o `id` exige migrar os dados existentes).
 
@@ -50,11 +52,8 @@ export const FARMER_RESET_STAGES: FarmerStage[] = ["contacted", "order_closed", 
 /** Cards em colunas finais aparecem por este número de dias. */
 export const TERMINAL_VISIBLE_DAYS = 30;
 
-export const CLIENT_KINDS = {
-  workshop: "Oficina mecânica",
-  parts_store: "Loja de autopeças",
-} as const;
-export type ClientKind = keyof typeof CLIENT_KINDS;
+/** Rótulos de todos os tipos de cliente; os tipos válidos variam por segmento (segments.ts). */
+export const CLIENT_KINDS: Record<string, string> = ALL_CLIENT_KINDS;
 
 export const CLIENT_STATUSES = {
   prospect: "Prospecção",

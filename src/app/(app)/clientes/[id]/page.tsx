@@ -17,6 +17,7 @@ import {
   PROSPECT_STAGES,
   stageLabel,
 } from "@/lib/kanban/stages";
+import { clientKindsOf, DEFAULT_SEGMENT, isSegment, segmentLabel } from "@/lib/segments";
 import { listUsers } from "@/lib/users";
 import { localDate } from "@/lib/week";
 import { deleteClientAction, deleteInteractionAction, updateClientAction } from "../actions";
@@ -34,7 +35,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
     listInteractions(db, client.id),
     listClientOpportunities(db, client.id),
     listUsers(db),
-    listRegions(db),
+    listRegions(db, isSegment(client.segment) ? client.segment : undefined),
   ]);
 
   return (
@@ -47,6 +48,9 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
         description={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={client.status} />
+            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-800">
+              {segmentLabel(client.segment)}
+            </span>
             <span>
               <KindLabel kind={client.kind} />
             </span>
@@ -90,6 +94,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
           <section className="card p-4">
             <h2 className="mb-4 font-semibold">Dados do cliente</h2>
             <ClientForm
+              kinds={clientKindsOf(isSegment(client.segment) ? client.segment : DEFAULT_SEGMENT)}
               action={updateClientAction}
               users={users}
               regions={regions}

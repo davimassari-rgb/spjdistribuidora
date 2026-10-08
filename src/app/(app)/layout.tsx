@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { NavLinks } from "@/components/nav-links";
+import { SegmentSwitcher } from "@/components/segment-switcher";
 import { requireUser } from "@/lib/auth/current-user";
+import { getCurrentSegment } from "@/lib/segment-server";
 import { logout } from "../login/actions";
+import { setSegmentAction } from "./segment-actions";
 
 // Todas as rotas deste grupo exigem login.
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const user = await requireUser();
+  const segment = await getCurrentSegment();
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
@@ -14,6 +18,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="font-semibold whitespace-nowrap text-blue-700">
               SPJ Distribuidora
             </Link>
+            <SegmentSwitcher current={segment} action={setSegmentAction} />
             <form action={logout} className="md:hidden">
               <button type="submit" className="text-sm text-slate-500 hover:text-slate-800">
                 Sair

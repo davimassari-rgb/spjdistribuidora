@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import { Field, FormMessage, SubmitButton } from "@/components/form";
 import { type FormState, initialFormState } from "@/lib/forms";
-import { CLIENT_KINDS } from "@/lib/kanban/stages";
 
 export type ClientFormValues = {
   id?: string;
@@ -27,12 +26,15 @@ export function ClientForm({
   users,
   regions,
   isNew,
+  kinds,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   initial?: ClientFormValues;
   users: { id: string; name: string }[];
   regions: string[];
   isNew: boolean;
+  /** Tipos de cliente do segmento. */
+  kinds: Record<string, string>;
 }) {
   const [state, formAction] = useActionState(action, initialFormState);
   // Depois de um erro, o React limpa o formulário: repopula com o que foi enviado.
@@ -100,7 +102,7 @@ export function ClientForm({
         <Field label="Tipo *" name="kind" state={state}>
           <select className="input" id="kind" name="kind" required defaultValue={v("kind")}>
             <option value="">Escolha…</option>
-            {Object.entries(CLIENT_KINDS).map(([value, label]) => (
+            {Object.entries(kinds).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>

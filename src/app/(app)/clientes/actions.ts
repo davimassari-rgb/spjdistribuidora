@@ -12,11 +12,13 @@ import {
   DuplicateCnpjError,
   deleteClient,
   deleteInteraction,
+  InvalidKindError,
   interactionInputSchema,
   newClientStatusSchema,
   updateClient,
 } from "@/lib/clients/clients";
 import { type FormState, formValues, invalidForm } from "@/lib/forms";
+import { getCurrentSegment } from "@/lib/segment-server";
 import { localDateToTimestamp } from "@/lib/week";
 
 function revalidateClientViews() {
@@ -33,10 +35,19 @@ export async function createClientAction(_prev: FormState, formData: FormData): 
 
   let id: string;
   try {
-    ({ id } = await createClient(getDb(), parsed.data, status.data));
+    ({ id } = await createClient(
+      getDb(),
+      parsed.data,
+      status.data,
+      new Date(),
+      await getCurrentSegment(),
+    ));
   } catch (error) {
     if (error instanceof DuplicateCnpjError) {
       return { fieldErrors: { cnpj: error.message }, values: formValues(formData) };
+    }
+    if (error instanceof InvalidKindError) {
+      return { fieldErrors: { kind: error.message }, values: formValues(formData) };
     }
     throw error;
   }
@@ -55,6 +66,9 @@ export async function updateClientAction(_prev: FormState, formData: FormData): 
   } catch (error) {
     if (error instanceof DuplicateCnpjError) {
       return { fieldErrors: { cnpj: error.message }, values: formValues(formData) };
+    }
+    if (error instanceof InvalidKindError) {
+      return { fieldErrors: { kind: error.message }, values: formValues(formData) };
     }
     throw error;
   }

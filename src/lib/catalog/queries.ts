@@ -14,11 +14,14 @@ import {
 } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { imports, partPriceTiers, parts, suppliers, users } from "@/db/schema";
+import type { Segment } from "@/lib/segments";
 import { escapeLike, normalizeCode, normalizeForSearch } from "@/lib/text";
 
 export const PAGE_SIZE = 50;
 
 export type CatalogFilters = {
+  /** Segmento de distribuição: só peças de fornecedores deste segmento. */
+  segment?: Segment;
   q?: string;
   supplierId?: string;
   brand?: string;
@@ -67,8 +70,16 @@ function searchConditions(q: string | undefined): SQL[] {
   });
 }
 
+/** Peça de um fornecedor do segmento. */
+function inSegment(segment: Segment | undefined): SQL | undefined {
+  if (!segment) return undefined;
+  return sql`${parts.supplierId} in (select ${suppliers.id} from ${suppliers} where ${suppliers.segment} = ${segment})`;
+}
+
 function filterConditions(filters: CatalogFilters): SQL[] {
   const conditions = searchConditions(filters.q);
+  const segment = inSegment(filters.segment);
+  if (segment) conditions.push(segment);
   if (filters.supplierId) conditions.push(eq(parts.supplierId, filters.supplierId));
   if (filters.brand) conditions.push(eq(parts.brand, filters.brand));
   if (filters.status === "inactive") conditions.push(eq(parts.active, false));
@@ -115,6 +126,7 @@ export async function searchParts(db: Db, filters: CatalogFilters) {
     loadOffers(
       db,
       rows.map((r) => r.codeKey),
+      filters.segment,
     ),
   ]);
 
@@ -142,7 +154,7 @@ async function loadTiers(db: Db, partIds: string[]) {
   return map;
 }
 
-async function loadOffers(db: Db, codeKeys: string[]) {
+async function loadOffers(db: Db, codeKeys: string[], segment?: Segment) {
   const map = new Map<string, Offer[]>();
   if (codeKeys.length === 0) return map;
   const rows = await db
@@ -156,7 +168,13 @@ async function loadOffers(db: Db, codeKeys: string[]) {
     })
     .from(parts)
     .innerJoin(suppliers, eq(suppliers.id, parts.supplierId))
-    .where(and(inArray(parts.codeKey, [...new Set(codeKeys)]), eq(parts.active, true)))
+    .where(
+      and(
+        inArray(parts.codeKey, [...new Set(codeKeys)]),
+        eq(parts.active, true),
+        inSegment(segment),
+      ),
+    )
     .orderBy(sql`${parts.priceCents} asc nulls last`);
   for (const { codeKey, ...offer } of rows) {
     const list = map.get(codeKey) ?? [];
@@ -178,6 +196,8 @@ export type ComparisonRow = {
 /** Peças ativas que existem em 2 ou mais fornecedores (mesmo código normalizado), lado a lado. */
 export async function comparePrices(db: Db, filters: CatalogFilters) {
   const conditions = [eq(parts.active, true), ...searchConditions(filters.q)];
+  const segment = inSegment(filters.segment);
+  if (segment) conditions.push(segment);
   if (filters.brand) conditions.push(eq(parts.brand, filters.brand));
   const page = pageOf(filters);
 
@@ -198,7 +218,7 @@ export async function comparePrices(db: Db, filters: CatalogFilters) {
     .offset((page - 1) * PAGE_SIZE);
 
   const codeKeys = keys.map((k) => k.codeKey);
-  const offers = await loadOffers(db, codeKeys);
+  const offers = await loadOffers(db, codeKeys, filters.segment);
   const details =
     codeKeys.length === 0
       ? []
@@ -227,8 +247,14 @@ export async function comparePrices(db: Db, filters: CatalogFilters) {
   return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
 
-export async function listBrands(db: Db, supplierId?: string): Promise<string[]> {
+export async function listBrands(
+  db: Db,
+  supplierId?: string,
+  segment?: Segment,
+): Promise<string[]> {
   const conditions = [eq(parts.active, true), isNotNull(parts.brand), ne(parts.brand, "")];
+  const bySegment = inSegment(segment);
+  if (bySegment) conditions.push(bySegment);
   if (supplierId) conditions.push(eq(parts.supplierId, supplierId));
   const rows = await db
     .selectDistinct({ brand: parts.brand })
@@ -238,11 +264,12 @@ export async function listBrands(db: Db, supplierId?: string): Promise<string[]>
   return rows.map((r) => r.brand as string);
 }
 
-export async function listSuppliers(db: Db) {
+export async function listSuppliers(db: Db, segment?: Segment) {
   return db
     .select({
       id: suppliers.id,
       name: suppliers.name,
+      segment: suppliers.segment,
       lastImportAt: suppliers.lastImportAt,
       activeCount: sql<number>`count(${parts.id}) filter (where ${parts.active})`.mapWith(Number),
       inactiveCount: sql<number>`count(${parts.id}) filter (where not ${parts.active})`.mapWith(
@@ -251,6 +278,7 @@ export async function listSuppliers(db: Db) {
     })
     .from(suppliers)
     .leftJoin(parts, eq(parts.supplierId, suppliers.id))
+    .where(segment ? eq(suppliers.segment, segment) : undefined)
     .groupBy(suppliers.id)
     .orderBy(asc(suppliers.name));
 }
@@ -261,11 +289,11 @@ export async function getSupplier(db: Db, id: string) {
 }
 
 /** Quantos códigos ativos existem em 2+ fornecedores. */
-export async function countSharedCodes(db: Db): Promise<number> {
+export async function countSharedCodes(db: Db, segment?: Segment): Promise<number> {
   const shared = db
     .select({ codeKey: parts.codeKey })
     .from(parts)
-    .where(eq(parts.active, true))
+    .where(and(eq(parts.active, true), inSegment(segment)))
     .groupBy(parts.codeKey)
     .having(sql`count(distinct ${parts.supplierId}) > 1`)
     .as("shared");

@@ -10,6 +10,8 @@ import { clientFiltersFrom } from "@/lib/clients/filters";
 import { prospectBoard } from "@/lib/kanban/boards";
 import { PROSPECT_STAGES, TERMINAL_VISIBLE_DAYS } from "@/lib/kanban/stages";
 import type { SearchParams } from "@/lib/search-params";
+import { getCurrentSegment } from "@/lib/segment-server";
+import { clientKindsOf } from "@/lib/segments";
 import { listUsers } from "@/lib/users";
 import { moveProspectAction } from "./actions";
 
@@ -18,11 +20,12 @@ export const metadata: Metadata = { title: "Prospecção" };
 /** Kanban hunter: abertura de novos clientes. */
 export default async function ProspectingPage(props: PageProps<"/prospeccao">) {
   const params = (await props.searchParams) as SearchParams;
-  const filters = { ...clientFiltersFrom(params), q: undefined, status: undefined };
+  const segment = await getCurrentSegment();
+  const filters = { ...clientFiltersFrom(params, segment), q: undefined, status: undefined };
   const db = getDb();
   const [cards, regions, users] = await Promise.all([
     prospectBoard(db, clientFilterConditions(filters)),
-    listRegions(db),
+    listRegions(db, segment),
     listUsers(db),
   ]);
 
@@ -38,6 +41,7 @@ export default async function ProspectingPage(props: PageProps<"/prospeccao">) {
         }
       />
       <ClientFilters
+        kinds={clientKindsOf(segment)}
         action="/prospeccao"
         values={filters}
         regions={regions}

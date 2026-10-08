@@ -6,10 +6,10 @@ import { isValidCnpj, normalizeCnpj, normalizePhone } from "@/lib/br";
 import {
   CLIENT_KINDS,
   CLIENT_STATUSES,
-  type ClientKind,
   INTERACTION_KINDS,
   type InteractionKind,
 } from "@/lib/kanban/stages";
+import { clientKindsOf, DEFAULT_SEGMENT, isSegment, type Segment } from "@/lib/segments";
 import { escapeLike } from "@/lib/text";
 
 // ------------------------------------------------------------------ validação (borda)
@@ -50,9 +50,9 @@ export const clientInputSchema = z.object({
       }
       return normalizeCnpj(v);
     }),
-  kind: z.enum(Object.keys(CLIENT_KINDS) as [ClientKind, ...ClientKind[]], {
-    error: "Escolha o tipo de cliente.",
-  }),
+  kind: z
+    .string({ error: "Escolha o tipo de cliente." })
+    .refine((kind) => kind in CLIENT_KINDS, "Escolha o tipo de cliente."),
   contactName: optionalText,
   phone: optionalPhone,
   whatsapp: optionalPhone,
@@ -76,6 +76,12 @@ export const interactionInputSchema = z.object({
   note: z.string().trim().min(1, "Escreva uma anotação.").max(5000),
 });
 export type InteractionInput = z.infer<typeof interactionInputSchema>;
+
+export class InvalidKindError extends Error {
+  constructor() {
+    super("Este tipo de cliente não pertence ao segmento.");
+  }
+}
 
 export class DuplicateCnpjError extends Error {
   constructor() {
@@ -111,7 +117,9 @@ export async function createClient(
   input: ClientInput,
   status: "prospect" | "active",
   now = new Date(),
+  segment: Segment = DEFAULT_SEGMENT,
 ): Promise<{ id: string }> {
+  if (!(input.kind in clientKindsOf(segment))) throw new InvalidKindError();
   await assertCnpjFree(db, input.cnpj);
   const stageFields =
     status === "prospect"
@@ -123,12 +131,19 @@ export async function createClient(
         };
   const [row] = await db
     .insert(clients)
-    .values({ ...input, status, ...stageFields })
+    .values({ ...input, segment, status, ...stageFields })
     .returning({ id: clients.id });
   return row;
 }
 
 export async function updateClient(db: Db, id: string, input: ClientInput): Promise<void> {
+  const [current] = await db
+    .select({ segment: clients.segment })
+    .from(clients)
+    .where(eq(clients.id, id));
+  if (current && isSegment(current.segment) && !(input.kind in clientKindsOf(current.segment))) {
+    throw new InvalidKindError();
+  }
   await assertCnpjFree(db, input.cnpj, id);
   await db.update(clients).set(input).where(eq(clients.id, id));
 }
@@ -155,6 +170,7 @@ export async function deleteInteraction(db: Db, clientId: string, interactionId:
 // ------------------------------------------------------------------ leitura
 
 export type ClientFilters = {
+  segment?: Segment;
   q?: string;
   kind?: string;
   region?: string;
@@ -164,6 +180,7 @@ export type ClientFilters = {
 
 export function clientFilterConditions(filters: ClientFilters): SQL[] {
   const conditions: SQL[] = [];
+  if (filters.segment) conditions.push(eq(clients.segment, filters.segment));
   if (filters.q) {
     const term = `%${escapeLike(filters.q.trim())}%`;
     const cnpjTerm = filters.q.toUpperCase().replace(/[^0-9A-Z]/g, "");
@@ -238,19 +255,25 @@ export async function listInteractions(db: Db, clientId: string) {
     .orderBy(desc(interactions.occurredAt), desc(interactions.createdAt));
 }
 
-export async function listRegions(db: Db): Promise<string[]> {
+export async function listRegions(db: Db, segment?: Segment): Promise<string[]> {
   const rows = await db
     .selectDistinct({ region: clients.region })
     .from(clients)
-    .where(and(isNotNull(clients.region), ne(clients.region, "")))
+    .where(
+      and(
+        isNotNull(clients.region),
+        ne(clients.region, ""),
+        segment ? eq(clients.segment, segment) : undefined,
+      ),
+    )
     .orderBy(asc(clients.region));
   return rows.map((r) => r.region as string);
 }
 
-export async function listClientOptions(db: Db) {
+export async function listClientOptions(db: Db, segment?: Segment) {
   return db
     .select({ id: clients.id, tradeName: clients.tradeName, status: clients.status })
     .from(clients)
-    .where(ne(clients.status, "lost"))
+    .where(and(ne(clients.status, "lost"), segment ? eq(clients.segment, segment) : undefined))
     .orderBy(asc(clients.tradeName));
 }

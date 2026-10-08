@@ -12,6 +12,7 @@ import {
 } from "@/lib/catalog/queries";
 import { formatDate } from "@/lib/format";
 import { pageParam, param, type SearchParams, withParams } from "@/lib/search-params";
+import { getCurrentSegment } from "@/lib/segment-server";
 import { CompareTable } from "./compare-table";
 import { CatalogFilters } from "./filters";
 import { PartsTable } from "./parts-table";
@@ -22,7 +23,9 @@ export default async function CatalogPage(props: PageProps<"/catalogo">) {
   const params = (await props.searchParams) as SearchParams;
   const db = getDb();
   const compare = param(params, "visao") === "comparar";
+  const segment = await getCurrentSegment();
   const filters = {
+    segment,
     q: param(params, "q"),
     supplierId: param(params, "fornecedor"),
     brand: param(params, "marca"),
@@ -31,9 +34,9 @@ export default async function CatalogPage(props: PageProps<"/catalogo">) {
   };
 
   const [supplierList, brands, sharedCount] = await Promise.all([
-    listSuppliers(db),
-    listBrands(db),
-    countSharedCodes(db),
+    listSuppliers(db, segment),
+    listBrands(db, undefined, segment),
+    countSharedCodes(db, segment),
   ]);
   const validSupplier = supplierList.some((s) => s.id === filters.supplierId);
   if (!validSupplier) filters.supplierId = undefined;

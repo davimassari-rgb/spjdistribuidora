@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { CLIENT_KINDS, CLIENT_STATUSES } from "@/lib/kanban/stages";
+import { CLIENT_STATUSES } from "@/lib/kanban/stages";
 
 /** Filtros de clientes (tipo, região, responsável) usados na lista e nos Kanbans. */
 export function ClientFilters({
   action,
   values,
   regions,
+  kinds,
   users,
   showStatus = false,
   showSearch = true,
@@ -13,6 +14,8 @@ export function ClientFilters({
   action: string;
   values: { q?: string; kind?: string; region?: string; ownerId?: string; status?: string };
   regions: string[];
+  /** Tipos de cliente do segmento atual. */
+  kinds: Record<string, string>;
   users: { id: string; name: string }[];
   showStatus?: boolean;
   showSearch?: boolean;
@@ -39,7 +42,7 @@ export function ClientFilters({
         aria-label="Tipo"
       >
         <option value="">Todos os tipos</option>
-        {Object.entries(CLIENT_KINDS).map(([value, label]) => (
+        {Object.entries(kinds).map(([value, label]) => (
           <option key={value} value={value}>
             {label}
           </option>

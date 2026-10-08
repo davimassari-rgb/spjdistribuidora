@@ -9,17 +9,20 @@ import { clientFiltersFrom } from "@/lib/clients/filters";
 import { formatCnpj, formatDate, formatPhone } from "@/lib/format";
 import { FARMER_STAGES, PROSPECT_STAGES, stageLabel } from "@/lib/kanban/stages";
 import type { SearchParams } from "@/lib/search-params";
+import { getCurrentSegment } from "@/lib/segment-server";
+import { clientKindsOf } from "@/lib/segments";
 import { listUsers } from "@/lib/users";
 
 export const metadata: Metadata = { title: "Clientes" };
 
 export default async function ClientsPage(props: PageProps<"/clientes">) {
   const params = (await props.searchParams) as SearchParams;
-  const filters = clientFiltersFrom(params);
+  const segment = await getCurrentSegment();
+  const filters = clientFiltersFrom(params, segment);
   const db = getDb();
   const [rows, regions, users] = await Promise.all([
     listClients(db, filters),
-    listRegions(db),
+    listRegions(db, segment),
     listUsers(db),
   ]);
 
@@ -35,6 +38,7 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
         }
       />
       <ClientFilters
+        kinds={clientKindsOf(segment)}
         action="/clientes"
         values={filters}
         regions={regions}

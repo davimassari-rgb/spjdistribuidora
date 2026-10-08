@@ -26,6 +26,8 @@ import {
   SpreadsheetError,
 } from "@/lib/catalog/spreadsheet";
 import { type FormState, invalidForm } from "@/lib/forms";
+import { percentToBp, setMarkupBp } from "@/lib/pricing";
+import { getCurrentSegment } from "@/lib/segment-server";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -51,7 +53,9 @@ export async function createSupplier(_prev: FormState, formData: FormData): Prom
       values: { name: parsed.data.name },
     };
   }
-  await getDb().insert(suppliers).values({ name: parsed.data.name });
+  await getDb()
+    .insert(suppliers)
+    .values({ name: parsed.data.name, segment: await getCurrentSegment() });
   revalidatePath("/fornecedores");
   return { success: `Fornecedor ${parsed.data.name} cadastrado.` };
 }
@@ -68,6 +72,16 @@ export async function renameSupplier(_prev: FormState, formData: FormData): Prom
   await getDb().update(suppliers).set({ name: parsed.data.name }).where(eq(suppliers.id, id.data));
   revalidatePath("/fornecedores", "layout");
   return { success: "Nome atualizado." };
+}
+
+/** Margem de venda (%) do segmento atual, usada nos preços do portal do cliente. */
+export async function setMarkupAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireUser();
+  const bp = percentToBp(String(formData.get("markup") ?? ""));
+  if (bp === null) return { fieldErrors: { markup: "Informe um percentual entre 0 e 1000." } };
+  await setMarkupBp(getDb(), await getCurrentSegment(), bp);
+  revalidatePath("/", "layout");
+  return { success: "Margem salva." };
 }
 
 /** Exclui o fornecedor com todas as peças, faixas de preço e histórico de importações. */

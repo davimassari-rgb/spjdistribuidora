@@ -4,17 +4,25 @@ import { PageHeader } from "@/components/page-header";
 import { getDb } from "@/db/client";
 import { listSuppliers } from "@/lib/catalog/queries";
 import { formatDateTime } from "@/lib/format";
-import { NewSupplierForm } from "./supplier-forms";
+import { bpToPercent, getMarkupBp } from "@/lib/pricing";
+import { getCurrentSegment } from "@/lib/segment-server";
+import { segmentLabel } from "@/lib/segments";
+import { MarkupForm, NewSupplierForm } from "./supplier-forms";
 
 export const metadata: Metadata = { title: "Fornecedores" };
 
 export default async function SuppliersPage() {
-  const suppliers = await listSuppliers(getDb());
+  const db = getDb();
+  const segment = await getCurrentSegment();
+  const [suppliers, markupBp] = await Promise.all([
+    listSuppliers(db, segment),
+    getMarkupBp(db, segment),
+  ]);
 
   return (
     <>
       <PageHeader
-        title="Fornecedores"
+        title={`Fornecedores · ${segmentLabel(segment)}`}
         description="O estoque disponível para venda é o catálogo dos fornecedores, atualizado por planilha."
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -62,10 +70,19 @@ export default async function SuppliersPage() {
             </div>
           ))}
         </div>
-        <section className="card self-start p-4">
-          <h2 className="mb-3 font-semibold">Novo fornecedor</h2>
-          <NewSupplierForm />
-        </section>
+        <div className="space-y-6 self-start">
+          <section className="card self-start p-4">
+            <h2 className="mb-3 font-semibold">Novo fornecedor</h2>
+            <NewSupplierForm />
+          </section>
+          <section className="card p-4">
+            <h2 className="mb-1 font-semibold">Margem de venda · {segmentLabel(segment)}</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Preço no portal do cliente = preço do fornecedor + esta margem.
+            </p>
+            <MarkupForm current={bpToPercent(markupBp)} />
+          </section>
+        </div>
       </div>
     </>
   );

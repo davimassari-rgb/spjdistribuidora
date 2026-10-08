@@ -67,6 +67,8 @@ export type ImportIssue = {
 export const suppliers = pgTable("suppliers", {
   id: uuid().primaryKey().defaultRandom(),
   name: text().notNull().unique(),
+  /** Segmento de distribuição (src/lib/segments.ts): "auto_parts" | "cosmetics" | "food". */
+  segment: text().notNull().default("auto_parts"),
   columnMapping: jsonb().$type<ColumnMapping>(),
   lastImportAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
@@ -139,9 +141,11 @@ export const clients = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     tradeName: text().notNull(),
     legalName: text(),
+    /** Segmento de distribuição (src/lib/segments.ts). */
+    segment: text().notNull().default("auto_parts"),
     /** 14 caracteres sem pontuação (numérico ou alfanumérico, padrão 2026). */
     cnpj: text().unique(),
-    /** "workshop" (oficina) | "parts_store" (loja de autopeças) */
+    /** Tipo de cliente; os valores possíveis dependem do segmento (src/lib/segments.ts). */
     kind: text().notNull(),
     contactName: text(),
     /** Apenas dígitos. */
@@ -167,7 +171,7 @@ export const clients = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index().on(t.status)],
+  (t) => [index().on(t.status), index().on(t.segment)],
 );
 
 export const interactions = pgTable(

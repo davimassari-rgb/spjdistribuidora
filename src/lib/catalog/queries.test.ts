@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DbHandle } from "@/db/client";
 import { suppliers } from "@/db/schema";
@@ -99,6 +100,31 @@ describe("consultas do catálogo", () => {
       ["Fornecedor A", 1028],
     ]);
     expect(await countSharedCodes(handle.db)).toBe(1);
+  });
+
+  it("mostra só fornecedores e peças do segmento escolhido", async () => {
+    const [food] = await handle.db
+      .insert(suppliers)
+      .values({ name: "Fornecedor Alimentos", segment: "food" })
+      .returning({ id: suppliers.id });
+    await applyImport(handle.db, {
+      supplierId: food.id,
+      userId: null,
+      fileName: "x.xlsx",
+      result: { items: [part("WK58", "Item alimentício", 500)], issues: [], totalRows: 1 },
+    });
+    expect((await listSuppliers(handle.db, "food")).map((s) => s.name)).toEqual([
+      "Fornecedor Alimentos",
+    ]);
+    expect((await searchParts(handle.db, { q: "wk58", segment: "food" })).rows).toHaveLength(1);
+    const auto = await searchParts(handle.db, {
+      q: "wk58",
+      supplierId: supplierA,
+      segment: "auto_parts",
+    });
+    // A mesma referência num fornecedor de outro segmento não entra na comparação
+    expect(auto.rows[0].otherOffers.map((o) => o.supplierName)).toEqual(["Fornecedor B"]);
+    await handle.db.delete(suppliers).where(eq(suppliers.id, food.id));
   });
 
   it("lista fornecedores com contagem de peças", async () => {
