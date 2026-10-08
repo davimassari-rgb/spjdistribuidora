@@ -5,14 +5,17 @@ import { useState, useTransition } from "react";
 import type { ColumnMapping } from "@/db/schema";
 import {
   type ImportResult,
-  importSpreadsheet,
   type PreviewResult,
   previewSpreadsheet,
+  type ReviewResult,
+  reviewSpreadsheet,
 } from "../../actions";
 import { IssuesTable } from "../issues-table";
+import { ReviewStep } from "./review-step";
 
 type Preview = Extract<PreviewResult, { ok: true }>;
 type Imported = Extract<ImportResult, { ok: true }>;
+type Review = Extract<ReviewResult, { ok: true }>;
 
 const FIELDS: {
   key: "code" | "description" | "price" | "brand" | "application" | "turnover";
@@ -50,6 +53,7 @@ export function ImportWizard({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
   const [result, setResult] = useState<Imported | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -79,22 +83,39 @@ export function ImportWizard({
     });
   }
 
-  function runImport() {
+  function startReview() {
     if (!mapping) return;
     setError(null);
     const data = baseForm();
     data.set("mapping", JSON.stringify(mapping));
     startTransition(async () => {
-      const response = await importSpreadsheet(data);
+      const response = await reviewSpreadsheet(data);
       if (!response.ok) return setError(response.error);
-      setResult(response);
-      setPreview(null);
+      setReview(response);
     });
   }
 
   const update = (changes: Partial<ColumnMapping>) =>
     setMapping((m) => (m ? { ...m, ...changes } : m));
   const missingRequired = mapping ? FIELDS.filter((f) => f.required && !mapping[f.key]) : [];
+
+  if (review && !result) {
+    return (
+      <ReviewStep
+        supplierId={supplierId}
+        supplierName={supplierName}
+        fileName={review.fileName}
+        initialRows={review.rows}
+        initialIssues={review.issues}
+        onBack={() => setReview(null)}
+        onImported={(imported) => {
+          setResult(imported);
+          setReview(null);
+          setPreview(null);
+        }}
+      />
+    );
+  }
 
   if (result) {
     const s = result.summary;
@@ -334,9 +355,9 @@ export function ImportWizard({
                 type="button"
                 className="btn-primary"
                 disabled={pending || missingRequired.length > 0}
-                onClick={runImport}
+                onClick={startReview}
               >
-                {pending ? "Importando…" : `Importar para ${supplierName}`}
+                {pending ? "Lendo linhas…" : "Revisar produtos antes de importar"}
               </button>
               {missingRequired.length > 0 && (
                 <span className="text-sm text-red-600">

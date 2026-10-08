@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { ColumnMapping } from "@/db/schema";
 import { buildWorkbook, encodeWindows1252, GIRO_ABC_LIKE } from "@/test/spreadsheets";
-import { buildSearchText, cleanBrand, guessMapping, MappingError, mapRows } from "./mapping";
+import {
+  buildSearchText,
+  cleanBrand,
+  extractRows,
+  guessMapping,
+  MappingError,
+  mapRows,
+  validateRows,
+} from "./mapping";
 import { columnLabels, detectHeaderIndex, readSpreadsheet, SpreadsheetError } from "./spreadsheet";
 
 describe("leitura de planilhas", () => {
@@ -169,5 +177,35 @@ describe("normalizações", () => {
         application: null,
       }),
     ).toBe("wk-58 wk58 filtro de combustivel mann");
+  });
+});
+
+describe("revisão antes de importar", () => {
+  it("extrai as linhas como texto e revalida depois das correções", () => {
+    const sheet = readSpreadsheet(buildWorkbook(GIRO_ABC_LIKE, "biff8"), "giro.xls");
+    const mapping = { ...guessMapping(columnLabels(sheet.rows, 0), 1), turnover: "Coluna E" };
+    const rows = extractRows(sheet, mapping);
+    expect(rows[0]).toMatchObject({ row: 2, code: "FX100", price: "10,23", brand: "MARCA ALFA" });
+
+    const before = validateRows(rows);
+    expect(before.issues.filter((i) => i.level === "error").map((i) => i.row)).toEqual([8, 9]);
+
+    // Corrige o código vazio e o preço inválido; exclui a linha duplicada
+    const edited = rows
+      .filter((r) => r.row !== 5)
+      .map((r) =>
+        r.row === 8 ? { ...r, code: "SC1" } : r.row === 9 ? { ...r, price: "12,50" } : r,
+      );
+    const after = validateRows(edited);
+    expect(after.issues.filter((i) => i.level === "error")).toEqual([]);
+    expect(after.items.map((i) => i.code)).toEqual([
+      "FX100",
+      "FX200",
+      "VL-300",
+      "AD400",
+      "SC1",
+      "PS500",
+    ]);
+    expect(after.items.at(-1)?.priceCents).toBe(1250);
   });
 });

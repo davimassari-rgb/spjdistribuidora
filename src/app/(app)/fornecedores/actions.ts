@@ -8,7 +8,15 @@ import { getDb } from "@/db/client";
 import { type ColumnMapping, type ImportIssue, suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current-user";
 import { applyImport, ImportError, type ImportSummary } from "@/lib/catalog/import";
-import { columnMappingSchema, guessMapping, MappingError, mapRows } from "@/lib/catalog/mapping";
+import {
+  columnMappingSchema,
+  extractRows,
+  guessMapping,
+  MappingError,
+  type ReviewRow,
+  reviewRowsSchema,
+  validateRows,
+} from "@/lib/catalog/mapping";
 import { getSupplier } from "@/lib/catalog/queries";
 import {
   type CellValue,
@@ -164,13 +172,13 @@ function cellPreview(cell: CellValue | undefined): string {
   return String(cell).trim().slice(0, 60);
 }
 
-export type ImportResult =
+export type ReviewResult =
   | { ok: false; error: string }
-  | { ok: true; summary: ImportSummary; issues: ImportIssue[]; supplierId: string };
+  | { ok: true; fileName: string; rows: ReviewRow[]; issues: ImportIssue[] };
 
-/** Passo 2: aplica o mapeamento e grava o catálogo do fornecedor. */
-export async function importSpreadsheet(formData: FormData): Promise<ImportResult> {
-  const user = await requireUser();
+/** Passo 2: aplica o mapeamento e devolve TODAS as linhas para revisão (nada é gravado). */
+export async function reviewSpreadsheet(formData: FormData): Promise<ReviewResult> {
+  await requireUser();
   const supplier = await supplierFrom(formData);
   if (!supplier) return { ok: false, error: "Fornecedor não encontrado." };
   const file = await readUploadedFile(formData);
@@ -188,29 +196,58 @@ export async function importSpreadsheet(formData: FormData): Promise<ImportResul
   }
 
   try {
-    const sheet = readSpreadsheet(file.data, file.name);
-    const result = mapRows(sheet, mapping.data);
-    const db = getDb();
-    const summary = await applyImport(db, {
-      supplierId: supplier.id,
-      userId: user.id,
-      fileName: file.name,
-      result,
-    });
-    await db
+    const rows = extractRows(readSpreadsheet(file.data, file.name), mapping.data);
+    // O mapeamento confirmado fica salvo para as próximas planilhas deste fornecedor.
+    await getDb()
       .update(suppliers)
       .set({ columnMapping: mapping.data })
       .where(eq(suppliers.id, supplier.id));
+    return { ok: true, fileName: file.name, rows, issues: validateRows(rows).issues };
+  } catch (error) {
+    if (error instanceof SpreadsheetError || error instanceof MappingError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
+}
+
+/** Revalida linhas editadas na revisão (sem gravar), para mostrar os problemas atualizados. */
+export async function checkReviewedRows(rows: unknown): Promise<ImportIssue[] | null> {
+  await requireUser();
+  const parsed = reviewRowsSchema.safeParse(rows);
+  return parsed.success ? validateRows(parsed.data).issues : null;
+}
+
+export type ImportResult =
+  | { ok: false; error: string }
+  | { ok: true; summary: ImportSummary; issues: ImportIssue[]; supplierId: string };
+
+/** Passo 3: grava as linhas revisadas (validadas de novo aqui, no servidor). */
+export async function importReviewedRows(input: {
+  supplierId: string;
+  fileName: string;
+  rows: unknown;
+}): Promise<ImportResult> {
+  const user = await requireUser();
+  const supplierId = z.uuid().safeParse(input.supplierId);
+  const supplier = supplierId.success ? await getSupplier(getDb(), supplierId.data) : null;
+  if (!supplier) return { ok: false, error: "Fornecedor não encontrado." };
+  const rows = reviewRowsSchema.safeParse(input.rows);
+  if (!rows.success)
+    return { ok: false, error: "Dados da revisão inválidos. Recomece a importação." };
+
+  try {
+    const result = validateRows(rows.data);
+    const summary = await applyImport(getDb(), {
+      supplierId: supplier.id,
+      userId: user.id,
+      fileName: String(input.fileName).slice(0, 200) || "planilha",
+      result,
+    });
     revalidatePath("/", "layout");
     return { ok: true, summary, issues: result.issues.slice(0, 300), supplierId: supplier.id };
   } catch (error) {
-    if (
-      error instanceof SpreadsheetError ||
-      error instanceof MappingError ||
-      error instanceof ImportError
-    ) {
-      return { ok: false, error: error.message };
-    }
+    if (error instanceof ImportError) return { ok: false, error: error.message };
     throw error;
   }
 }

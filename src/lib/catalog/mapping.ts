@@ -108,11 +108,37 @@ function parseShare(cell: CellValue): number | null | "invalid" {
   return isPercent ? value / 100 : value;
 }
 
-function display(cell: CellValue): string {
-  return cleanText(cell).slice(0, 40);
-}
+/** Linha da planilha já com as colunas mapeadas, como texto (editável na revisão). */
+export type ReviewRow = {
+  row: number;
+  code: string;
+  description: string;
+  price: string;
+  brand: string;
+  application: string;
+  turnover: string;
+  tiers: { minQuantity: number; price: string }[];
+};
 
-export function mapRows(sheet: SheetData, mapping: ColumnMapping): MappingResult {
+export const reviewRowsSchema = z
+  .array(
+    z.object({
+      row: z.number().int().min(1),
+      code: z.string().max(200),
+      description: z.string().max(1000),
+      price: z.string().max(100),
+      brand: z.string().max(200),
+      application: z.string().max(1000),
+      turnover: z.string().max(100),
+      tiers: z
+        .array(z.object({ minQuantity: z.number().int().min(2), price: z.string().max(100) }))
+        .max(20),
+    }),
+  )
+  .max(100_000);
+
+/** Extrai, de cada linha não vazia, os valores das colunas mapeadas (sem validar). */
+export function extractRows(sheet: SheetData, mapping: ColumnMapping): ReviewRow[] {
   const headerIndex = mapping.headerRow - sheet.firstRowNumber;
   if (headerIndex < 0 || headerIndex >= sheet.rows.length) {
     throw new MappingError(`A linha de títulos ${mapping.headerRow} não existe na planilha.`);
@@ -141,49 +167,77 @@ export function mapRows(sheet: SheetData, mapping: ColumnMapping): MappingResult
     ...tier,
     index: indexOf(tier.column) as number,
   }));
+  const text = (cell: CellValue | undefined) => cleanText(cell);
+  // Números viram texto no formato brasileiro ("10,23") para a revisão e o parser de preço.
+  const money = (cell: CellValue | undefined) =>
+    typeof cell === "number" ? String(cell).replace(".", ",") : text(cell);
 
-  const items: ParsedPart[] = [];
-  const issues: ImportIssue[] = [];
-  const firstRowByKey = new Map<string, number>();
-  let totalRows = 0;
-
+  const rows: ReviewRow[] = [];
   for (let i = headerIndex + 1; i < sheet.rows.length; i++) {
     const row = sheet.rows[i];
     if (row.every((cell) => isEmptyCell(cell))) continue;
-    totalRows++;
-    const rowNumber = sheet.firstRowNumber + i;
+    rows.push({
+      row: sheet.firstRowNumber + i,
+      code: text(row[col.code]),
+      description: text(row[col.description]),
+      price: money(row[col.price]),
+      brand: col.brand === null ? "" : cleanBrand(text(row[col.brand])),
+      application: col.application === null ? "" : text(row[col.application]),
+      turnover: col.turnover === null ? "" : text(row[col.turnover]),
+      tiers: tierCols.map((tier) => ({
+        minQuantity: tier.minQuantity,
+        price: money(row[tier.index]),
+      })),
+    });
+  }
+  return rows;
+}
+
+/** Lê a planilha e valida as linhas (atalho para extractRows + validateRows). */
+export function mapRows(sheet: SheetData, mapping: ColumnMapping): MappingResult {
+  return validateRows(extractRows(sheet, mapping));
+}
+
+/**
+ * Valida as linhas (vindas da planilha ou editadas na revisão) e produz as peças a importar.
+ * Erros tiram a linha da importação; avisos importam com ressalva. Roda sempre no servidor.
+ */
+export function validateRows(rows: ReviewRow[]): MappingResult {
+  const items: ParsedPart[] = [];
+  const issues: ImportIssue[] = [];
+  const firstRowByKey = new Map<string, number>();
+
+  for (const raw of rows) {
+    const rowNumber = raw.row;
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    const code = cleanText(row[col.code]);
+    const code = cleanText(raw.code);
     const codeKey = normalizeCode(code);
     if (!code) errors.push("código vazio");
-    else if (!codeKey) errors.push(`código inválido "${display(row[col.code])}"`);
+    else if (!codeKey) errors.push(`código inválido "${code.slice(0, 40)}"`);
 
-    const description = cleanText(row[col.description]);
+    const description = cleanText(raw.description);
     if (!description) errors.push("descrição vazia");
 
-    const price = parseMoneyToCents(row[col.price]);
+    const price = parseMoneyToCents(raw.price);
     let priceCents: number | null = null;
-    if (!price.ok) errors.push(`preço inválido "${display(row[col.price])}"`);
+    if (!price.ok) errors.push(`preço inválido "${raw.price.slice(0, 40)}"`);
     else if (price.cents !== null && price.cents <= 0) errors.push("preço deve ser maior que zero");
     else if (price.cents === null) warnings.push("sem preço: importada como “Sob consulta”");
     else priceCents = price.cents;
 
     let turnoverShare: number | null = null;
-    if (col.turnover !== null) {
-      const share = parseShare(row[col.turnover]);
-      if (share === "invalid")
-        warnings.push(`giro inválido "${display(row[col.turnover])}" ignorado`);
-      else turnoverShare = share;
-    }
+    const share = parseShare(raw.turnover || null);
+    if (share === "invalid") warnings.push(`giro inválido "${raw.turnover.slice(0, 40)}" ignorado`);
+    else turnoverShare = share;
 
     const tiers: ParsedPart["tiers"] = [];
-    for (const tier of tierCols) {
-      const tierPrice = parseMoneyToCents(row[tier.index]);
+    for (const tier of raw.tiers) {
+      const tierPrice = parseMoneyToCents(tier.price);
       if (!tierPrice.ok || (tierPrice.cents !== null && tierPrice.cents <= 0)) {
         warnings.push(
-          `preço da faixa ${tier.minQuantity}+ inválido "${display(row[tier.index])}" ignorado`,
+          `preço da faixa ${tier.minQuantity}+ inválido "${tier.price.slice(0, 40)}" ignorado`,
         );
       } else if (tierPrice.cents !== null) {
         tiers.push({ minQuantity: tier.minQuantity, priceCents: tierPrice.cents });
@@ -215,22 +269,20 @@ export function mapRows(sheet: SheetData, mapping: ColumnMapping): MappingResult
       issues.push({ row: rowNumber, level: "warning", message: capitalize(message) });
     }
 
-    const brandText = col.brand === null ? "" : cleanBrand(cleanText(row[col.brand]));
-    const applicationText = col.application === null ? "" : cleanText(row[col.application]);
     items.push({
       rowNumber,
       code,
       codeKey,
       description,
-      brand: brandText || null,
-      application: applicationText || null,
+      brand: cleanText(raw.brand) || null,
+      application: cleanText(raw.application) || null,
       priceCents,
       turnoverShare,
       tiers,
     });
   }
 
-  return { items, issues, totalRows };
+  return { items, issues, totalRows: rows.length };
 }
 
 function capitalize(text: string): string {
