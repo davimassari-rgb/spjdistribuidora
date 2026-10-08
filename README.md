@@ -76,5 +76,5 @@ Coloque as planilhas dos fornecedores em `data/samples/`. Essa pasta, e qualquer
 
 1. Crie um banco PostgreSQL (Neon tem plano gratuito) e copie a URL de conexão.
 2. Na Vercel, importe o repositório e defina `DATABASE_URL` com a URL `postgresql://...`.
-3. Antes de cada deploy, aplique as migrations, por exemplo com o build command `npm run db:migrate && npm run build`.
+3. Não precisa configurar o build: a Vercel roda o script `vercel-build`, que aplica as migrations e depois faz o build. Sem `DATABASE_URL`, o build falha de propósito.
 4. Acesse `/setup` para criar o primeiro usuário da equipe.

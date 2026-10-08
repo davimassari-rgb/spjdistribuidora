@@ -57,8 +57,11 @@ export function createDb(url: string): DbHandle {
 export function resolveDatabaseUrl(): string {
   const url = process.env.DATABASE_URL?.trim();
   if (url) return url;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("DATABASE_URL não definida.");
+  // Na Vercel (build ou execução) nunca cair no PGlite: o disco lá é temporário.
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    throw new Error(
+      "DATABASE_URL não definida. Conecte um banco PostgreSQL ao projeto (ex.: Neon na Vercel).",
+    );
   }
   return DEFAULT_DEV_DATABASE_URL;
 }
