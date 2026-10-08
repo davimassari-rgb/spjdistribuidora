@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     },
   },
   turbopack: {
+    // Há outro package-lock.json numa pasta acima; fixa a raiz no projeto.
+    root: process.cwd(),
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],
