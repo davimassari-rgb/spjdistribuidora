@@ -1,16 +1,21 @@
+import { Trash2 } from "lucide-react";
 import type { Metadata } from "next";
+import { ConfirmButton } from "@/components/confirm-button";
 import { PageHeader } from "@/components/page-header";
+import { Avatar } from "@/components/ui/avatar";
 import { getDb } from "@/db/client";
 import { requireUser } from "@/lib/auth/current-user";
 import { formatDate } from "@/lib/format";
+import { param, type SearchParams } from "@/lib/search-params";
 import { listUsers } from "@/lib/users";
 import { removeUser } from "./actions";
-import { AddUserForm, ChangePasswordForm } from "./forms";
+import { UserActions } from "./forms";
 
 export const metadata: Metadata = { title: "Usuários" };
 
-export default async function UsersPage() {
+export default async function UsersPage(props: PageProps<"/usuarios">) {
   const me = await requireUser();
+  const params = (await props.searchParams) as SearchParams;
   const users = await listUsers(getDb());
 
   return (
@@ -18,51 +23,55 @@ export default async function UsersPage() {
       <PageHeader
         title="Usuários"
         description="Equipe com acesso ao sistema. Todos têm o mesmo nível de acesso."
+        actions={<UserActions openPassword={param(params, "senha") === "1"} />}
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="card self-start overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nome</th>
-                <th className="px-4 py-2 font-medium">E-mail</th>
-                <th className="px-4 py-2 font-medium">Desde</th>
-                <th className="px-4 py-2" />
+      <div className="card overflow-x-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th className="hidden sm:table-cell">E-mail</th>
+              <th className="hidden md:table-cell">Desde</th>
+              <th className="w-12">
+                <span className="sr-only">Ações</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((user) => (
+              <tr key={user.id}>
+                <td>
+                  <div className="flex items-center gap-3">
+                    <Avatar name={user.name} />
+                    <div className="min-w-0">
+                      <div className="font-medium text-ink">
+                        {user.name}
+                        {user.id === me.id && <span className="badge-brand ml-2">você</span>}
+                      </div>
+                      <div className="caption sm:hidden">{user.email}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="hidden sm:table-cell">{user.email}</td>
+                <td className="num hidden md:table-cell">{formatDate(user.createdAt)}</td>
+                <td className="text-right">
+                  {user.id !== me.id && (
+                    <form action={removeUser}>
+                      <input type="hidden" name="userId" value={user.id} />
+                      <ConfirmButton
+                        message={`Remover o acesso de ${user.name}?`}
+                        className="btn-icon hover:text-danger"
+                      >
+                        <Trash2 className="size-4" aria-hidden />
+                        <span className="sr-only">Remover {user.name}</span>
+                      </ConfirmButton>
+                    </form>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{user.name}</td>
-                  <td className="px-4 py-2">{user.email}</td>
-                  <td className="px-4 py-2">{formatDate(user.createdAt)}</td>
-                  <td className="px-4 py-2 text-right">
-                    {user.id === me.id ? (
-                      <span className="text-xs text-slate-400">você</span>
-                    ) : (
-                      <form action={removeUser}>
-                        <input type="hidden" name="userId" value={user.id} />
-                        <button type="submit" className="text-xs text-red-600 hover:underline">
-                          Remover
-                        </button>
-                      </form>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="space-y-6">
-          <section className="card p-4">
-            <h2 className="mb-4 font-semibold">Novo usuário</h2>
-            <AddUserForm />
-          </section>
-          <section className="card p-4">
-            <h2 className="mb-4 font-semibold">Alterar minha senha</h2>
-            <ChangePasswordForm />
-          </section>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </>
   );

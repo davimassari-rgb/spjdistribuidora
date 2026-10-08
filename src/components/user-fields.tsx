@@ -1,4 +1,5 @@
 import { Field } from "@/components/form";
+import { PasswordInput } from "@/components/ui/password-input";
 import type { FormState } from "@/lib/forms";
 
 /** Campos nome/e-mail/senha, usados na configuração inicial e no cadastro de usuários. */
@@ -20,14 +21,12 @@ export function UserFields({ state }: { state: FormState }) {
         />
       </Field>
       <Field label="Senha" name="password" state={state} hint="Mínimo de 8 caracteres.">
-        <input
-          className="input"
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
-          required
-          minLength={8}
           autoComplete="new-password"
+          minLength={8}
+          showStrength
         />
       </Field>
     </>

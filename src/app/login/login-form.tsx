@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { FormMessage, SubmitButton } from "@/components/form";
+import { PasswordInput } from "@/components/ui/password-input";
 import { initialFormState } from "@/lib/forms";
 import { login } from "./actions";
 
@@ -28,14 +29,7 @@ export function LoginForm() {
         <label className="label" htmlFor="password">
           Senha
         </label>
-        <input
-          className="input"
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
+        <PasswordInput id="password" name="password" autoComplete="current-password" />
       </div>
       <SubmitButton pendingText="Entrando…" className="btn-primary w-full">
         Entrar
