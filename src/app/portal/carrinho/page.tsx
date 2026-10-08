@@ -7,7 +7,10 @@ export const metadata: Metadata = { title: "Carrinho" };
 export default function CartPage() {
   return (
     <>
-      <PageHeader title="Carrinho" description="Revise as quantidades e envie o pedido." />
+      <PageHeader
+        title="Carrinho"
+        description="Revise as quantidades e envie o pedido para a SPJ."
+      />
       <CartView />
     </>
   );
